@@ -53,7 +53,7 @@ describe('TableScreen', () => {
   });
 
   it('shows who acted and highlights that frame (§2c)', () => {
-    useAppStore.setState({ acting: { id: 'B', text: 'переложил Гале', seq: 3 } });
+    useAppStore.setState({ acting: { id: 'B', text: 'переложил Гале', seq: 3, holdMs: 900 } });
     render(<TableScreen center={null} mine={null} action={null} />);
     const actor = screen.getByTestId('player-B');
     expect(within(actor).getByTestId('caption-B')).toHaveTextContent('переложил Гале');
@@ -63,7 +63,7 @@ describe('TableScreen', () => {
   });
 
   it('shows my own caption in the bottom bar too', () => {
-    useAppStore.setState({ acting: { id: 'A', text: 'взял нижнюю', seq: 4 } });
+    useAppStore.setState({ acting: { id: 'A', text: 'взял нижнюю', seq: 4, holdMs: 900 } });
     render(<TableScreen center={null} mine={null} action={null} />);
     expect(within(screen.getByTestId('player-A')).getByTestId('caption-A')).toHaveTextContent('взял нижнюю');
   });

@@ -140,28 +140,31 @@ export interface ActingFx {
   text: string;
   /** Растёт на каждое действие: перезапускает появление подписи, даже если текст тот же. */
   seq: number;
+  /** Сколько подпись висит, прежде чем плавно погаснуть (спека §2c.1: не меньше 900 мс). */
+  holdMs: number;
 }
 
 /**
  * Подпись выводится из событий одного применённого действия — очередь показывает срезы по одному,
  * поэтому в пачке ровно одно действие игрока. Последствия (`vidbiy`, `out`, `trump`) — не действия.
  */
-export function actingFrom(update: ClientUpdate, seq: number): ActingFx | null {
+export function actingFrom(update: ClientUpdate, seq: number, holdMs: number): ActingFx | null {
+  const act = (id: PlayerId, text: string): ActingFx => ({ id, text, seq, holdMs });
   for (const event of update.events) {
     switch (event.type) {
       case 'drew':
-        return { id: event.playerId, text: ru.act.drew, seq };
+        return act(event.playerId, ru.act.drew);
       case 'kept':
-        return { id: event.playerId, text: ru.act.kept, seq };
+        return act(event.playerId, ru.act.kept);
       case 'played':
-        return { id: event.playerId, text: ru.act.played, seq };
+        return act(event.playerId, ru.act.played);
       case 'tookBottom':
-        return { id: event.playerId, text: ru.act.tookBottom, seq };
+        return act(event.playerId, ru.act.tookBottom);
       case 'placed':
         // «+1» на свою же стопку — не нарушение (спека §2.2), но и не перекладывание сопернику.
-        return { id: event.playerId, text: event.to === event.playerId ? ru.act.kept : ru.act.moved(playerName(update, event.to)), seq };
+        return act(event.playerId, event.to === event.playerId ? ru.act.kept : ru.act.moved(playerName(update, event.to)));
       case 'movedTop':
-        return { id: event.from, text: ru.act.moved(playerName(update, event.to)), seq };
+        return act(event.from, ru.act.moved(playerName(update, event.to)));
     }
   }
   return null;

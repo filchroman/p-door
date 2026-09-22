@@ -24,7 +24,7 @@ import {
   type ToastTone,
 } from './derive';
 import { exposeView } from './expose';
-import { UpdatePump, captionHoldMs } from './updatePump';
+import { CAPTION_FADE_MS, UpdatePump, captionHoldMs } from './updatePump';
 
 export type Screen = 'home' | 'loading' | 'game';
 
@@ -126,8 +126,8 @@ export const useAppStore = create<AppState>()((set, get) => {
     // чтобы открытые карты прилетели в руку оттуда, где прикуп лежал (спека §2c).
     const opensPrykup = update.events.some((event) => event.type === 'prykupOpened' && event.playerId === update.view.me);
     const prykupOrigin = motionEnabled && opensPrykup ? zoneOrigin(`prykup-${update.view.me}`) : null;
-    const acting = actingFrom(update, ++actSeq);
     const captionMs = captionHoldMs(speed);
+    const acting = actingFrom(update, ++actSeq, captionMs);
     stopCelebration();
     stopActing();
     if (fresh || swept.length > 0) stopSweep();
@@ -159,11 +159,12 @@ export const useAppStore = create<AppState>()((set, get) => {
       }, ms);
     }
     // Подпись сменяется следующим действием; если его нет — гаснет сама, а не висит до конца партии.
+    // Снимается она после угасания: последние CAPTION_FADE_MS плашка растворяется, а не пропадает кадром.
     if (acting && motionEnabled) {
       actTimer = setTimeout(() => {
         actTimer = null;
         set({ acting: null });
-      }, captionMs);
+      }, captionMs + CAPTION_FADE_MS);
     }
     for (const toast of eventToasts(update)) get().pushToast(toast.text, toast.tone);
   };

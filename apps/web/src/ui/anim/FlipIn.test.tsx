@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetStore } from '../../test/updates';
 import { FlipIn } from './FlipIn';
-import { FLY_MS } from './motion';
+import { FLIP_MS } from './motion';
 
 // Длительность перехода наружу не видна: подменяем motion.div, чтобы прочитать её в DOM.
 vi.mock('motion/react', async (importOriginal) => {
@@ -23,16 +23,16 @@ vi.mock('motion/react', async (importOriginal) => {
 beforeEach(() => resetStore({ motionEnabled: true }));
 
 describe('FlipIn', () => {
-  it('flips in FLY_MS and speeds up with the update queue, like every other card motion', () => {
+  it('flips in FLIP_MS and speeds up with the update queue, like every other card motion', () => {
     const flip = () => (
       <FlipIn flip>
         <span>лицо</span>
       </FlipIn>
     );
     const { container, rerender } = render(flip());
-    expect(container.querySelector('.flip-in')).toHaveAttribute('data-duration', String(FLY_MS / 1000));
+    expect(container.querySelector('.flip-in')).toHaveAttribute('data-duration', String(FLIP_MS / 1000));
     resetStore({ motionEnabled: true, animSpeed: 2 });
     rerender(flip());
-    expect(container.querySelector('.flip-in')).toHaveAttribute('data-duration', String(FLY_MS / 1000 / 2));
+    expect(container.querySelector('.flip-in')).toHaveAttribute('data-duration', String(FLIP_MS / 1000 / 2));
   });
 });

@@ -40,6 +40,7 @@ export function TableScreen({ center, mine, action, opponentExtras }: TableScree
     outSeq: outSeq(p.id),
     caption: acting?.id === p.id ? acting.text : null,
     captionSeq: acting?.id === p.id ? acting.seq : null,
+    captionMs: acting?.id === p.id ? acting.holdMs : null,
   });
   return (
     <div className="table-screen" data-total={cardsInPlay(view)} onClick={() => hasSelection && select(null)}>

@@ -22,11 +22,13 @@
   font: 700 0.68rem var(--font-body); color: #fff; background: rgba(12, 20, 36, 0.82);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   transform: translateX(-50%);
-  animation: act-caption-in 180ms var(--ease-out) both;
+  /* Появляется рывком, висит --caption-ms и гаснет плавно (спека §2c.1). */
+  animation: act-caption-in 180ms var(--ease-out) both, act-caption-out 240ms var(--ease-out) var(--caption-ms, 900ms) forwards;
 }
 /* У своей рамки места снизу нет — у края экрана подпись всплывает над панелью. */
 .bottom-bar .act-caption { bottom: auto; top: -22px; }
 @keyframes act-caption-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+@keyframes act-caption-out { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   @keyframes act-caption-in { from { opacity: 0; transform: translateX(-50%); } }
 }

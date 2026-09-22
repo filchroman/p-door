@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CAPTION_MS, MIN_STEP_MS, STEP_MS, UpdatePump, animSpeedFor, captionHoldMs, stepDelay } from './updatePump';
+import { CAPTION_MIN_MS, CAPTION_MS, MIN_STEP_MS, STEP_MS, STEP_PAUSE_MS, UpdatePump, animSpeedFor, captionHoldMs, stepDelay } from './updatePump';
 import { FLY_MS } from '../ui/anim/motion';
 
 beforeEach(() => vi.useFakeTimers());
@@ -39,17 +39,20 @@ describe('UpdatePump', () => {
   });
 
   /** Спека §2c: действие видно не меньше, чем длится его анимация — иначе ходы наложатся. */
-  it('never shows a step for less than its own animation', () => {
+  it('never shows a step for less than its own animation, and always leaves a gap after it', () => {
     for (let backlog = 1; backlog <= 30; backlog++) {
-      expect(stepDelay(backlog)).toBeGreaterThanOrEqual(FLY_MS / animSpeedFor(backlog));
+      expect(stepDelay(backlog)).toBeGreaterThan(FLY_MS / animSpeedFor(backlog));
     }
   });
 
-  it('leaves a visible pause between two actions at normal speed', () => {
-    expect(STEP_MS).toBeGreaterThan(FLY_MS);
+  it('between two actions: the flight plus at least 250 ms (§2c.1)', () => {
+    expect(STEP_PAUSE_MS).toBeGreaterThanOrEqual(250);
+    expect(stepDelay(1)).toBe(FLY_MS + STEP_PAUSE_MS);
     expect(captionHoldMs(1)).toBe(CAPTION_MS);
-    // Ускорение очереди укорачивает и подпись, но она живёт не меньше самого шага.
+    // Ускорение очереди укорачивает подпись, но она живёт не меньше 900 мс и не меньше самого шага.
+    expect(captionHoldMs(4)).toBeGreaterThanOrEqual(CAPTION_MIN_MS);
     expect(captionHoldMs(4)).toBeGreaterThanOrEqual(stepDelay(4));
+    for (const speed of [1, 2, 3, 4, 10]) expect(captionHoldMs(speed)).toBeGreaterThanOrEqual(CAPTION_MIN_MS);
   });
 
   it('clear drops the backlog', () => {

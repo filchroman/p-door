@@ -16,6 +16,7 @@ export interface BottomBarProps {
   outSeq: number | null;
   caption: string | null;
   captionSeq: number | null;
+  captionMs: number | null;
   trump: Suit | null;
   trumpCard: Card | null;
   counter: string | null;

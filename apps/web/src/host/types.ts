@@ -9,7 +9,11 @@ export interface HostClock {
 }
 
 export const PENALTY_MS = 20_000;
-export const BOT_DELAY_MIN_MS = 600;
-export const BOT_DELAY_MAX_MS = 1200;
+/**
+ * Пауза бота перед ходом (спека §2c.1): 1,2–1,8 с вместо прежних 0,6–1,2 с, чтобы было видно,
+ * кто что делает. Делится на скорость из отладочной панели.
+ */
+export const BOT_DELAY_MIN_MS = 1200;
+export const BOT_DELAY_MAX_MS = 1800;
 /** Запас после nextDeadline, чтобы окно Вахты точно успело закрыться. */
 export const TICK_SLACK_MS = 5;

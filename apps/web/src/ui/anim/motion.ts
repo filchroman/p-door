@@ -1,5 +1,10 @@
-export const FLY_MS = 260;
-export const EXIT_MS = 300;
+/**
+ * Темп карт (спека §2c.1): перелёт 380–520 мс, переворот 300–400 мс. Прежние 180–320 мс заказчик
+ * не успевал прочитать — «не видно, как боты берут карты».
+ */
+export const FLY_MS = 440;
+export const FLIP_MS = 340;
+export const EXIT_MS = 440;
 export const FADE_MS = 150;
 
 export interface MotionTransition {
@@ -63,7 +68,7 @@ export function flipMotion({ reduced, speed }: { reduced: boolean; speed: number
   if (reduced) {
     return { reduced, initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: FADE_MS / 1000 / k, ease: 'easeOut' } };
   }
-  return { reduced, initial: { rotateY: 180 }, animate: { rotateY: 0 }, transition: { duration: FLY_MS / 1000 / k, ease: 'easeOut' } };
+  return { reduced, initial: { rotateY: 180 }, animate: { rotateY: 0 }, transition: { duration: FLIP_MS / 1000 / k, ease: 'easeOut' } };
 }
 
 /** will-change только на время анимации — иначе браузер держит слой каждой карты впустую. */

@@ -1,5 +1,5 @@
 import type { PublicPlayer } from '@vakhta/engine';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { SeatInfo } from '../../client/types';
 import { ru } from '../../i18n/ru';
 import { Countdown } from '../Countdown';
@@ -20,10 +20,12 @@ export interface PlayerFrameProps {
   caption: string | null;
   /** Номер действия: тем же текстом подряд подпись всё равно появляется заново. */
   captionSeq: number | null;
+  /** Сколько подпись висит до угасания (спека §2c.1: ≥ 900 мс). */
+  captionMs: number | null;
   children?: ReactNode;
 }
 
-export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, caughtSeq, outSeq, caption, captionSeq, children }: PlayerFrameProps) {
+export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, caughtSeq, outSeq, caption, captionSeq, captionMs, children }: PlayerFrameProps) {
   const classes = ['player-frame', status === 'turn' ? 'is-turn' : '', caption ? 'is-acting' : '', player.out ? 'is-out' : '']
     .filter(Boolean)
     .join(' ');
@@ -53,7 +55,12 @@ export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, cau
       <div className="player-name">{seat.name}</div>
       {/* Подпись лежит поверх рамки: появляется и гаснет, ничего не сдвигая. */}
       {caption && (
-        <span key={captionSeq ?? caption} className="act-caption" data-testid={`caption-${seat.id}`}>
+        <span
+          key={captionSeq ?? caption}
+          className="act-caption"
+          style={{ '--caption-ms': `${captionMs ?? 0}ms` } as CSSProperties}
+          data-testid={`caption-${seat.id}`}
+        >
           {caption}
         </span>
       )}

@@ -6,7 +6,7 @@ import { c, phase1State, phase2State } from '../test/states';
 import { fakeClient, makeUpdate, resetStore } from '../test/updates';
 import { EXIT_MS } from '../ui/anim/motion';
 import { useAppStore } from './appStore';
-import { CAPTION_MS, STEP_MS } from './updatePump';
+import { CAPTION_FADE_MS, CAPTION_MS, STEP_MS } from './updatePump';
 
 const setup: MatchSetup = { nick: 'Вася', playerCount: 3, settings: { deckSize: 36, turnSeconds: 0, stallRule: 'forcedVidbiy' } };
 const start = () =>
@@ -80,7 +80,9 @@ describe('app store', () => {
     await useAppStore.getState().startMatch(setup);
     emit(makeUpdate(start(), 'p0', { events: [{ type: 'tookBottom', playerId: 'p1', card: c('7H') }] }));
     expect(useAppStore.getState().acting).toMatchObject({ id: 'p1', text: ru.act.tookBottom });
-    vi.advanceTimersByTime(CAPTION_MS - 1);
+    // Подпись висит свой срок и только потом угасает: снимается она после угасания (спека §2c.1).
+    expect(useAppStore.getState().acting!.holdMs).toBeGreaterThanOrEqual(900);
+    vi.advanceTimersByTime(CAPTION_MS + CAPTION_FADE_MS - 1);
     expect(useAppStore.getState().acting).not.toBeNull();
     vi.advanceTimersByTime(1);
     expect(useAppStore.getState().acting).toBeNull();

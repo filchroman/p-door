@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -p packages/engine"
+    "typecheck": "tsc -p packages/engine && tsc -p apps/web",
+    "dev": "npm run dev -w @vakhta/web"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

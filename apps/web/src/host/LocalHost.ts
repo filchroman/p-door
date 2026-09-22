@@ -50,6 +50,8 @@ export const realClock: HostClock = {
 
 const MAX_AUTO_STEPS = 64;
 const LOG_LIMIT = 500;
+/** Столько отклонённых шагов подряд — и партию уже не расшевелить: показываем экран сбоя. */
+const MAX_STUCK_STEPS = 5;
 
 export class LocalHost {
   private readonly seats: SeatInfo[];
@@ -68,6 +70,8 @@ export class LocalHost {
   private actionCount = 0;
   private log: LogEntry[] = [];
   private unexpectedErrorCount = 0;
+  /** Отклонённых автоматических шагов подряд; любое применённое действие обнуляет. */
+  private stuckSteps = 0;
   private botSpeed: BotSpeed;
   private humanId: PlayerId | null;
   private autopilot = false;
@@ -260,6 +264,7 @@ export class LocalHost {
     }
     this.state = result.state;
     this.lastEvents = result.events;
+    this.stuckSteps = 0;
     this.changeSeq++;
     if (action.type !== 'tick') this.actionCount++;
     this.pushLog({ at: now, playerId: actor, action, events: result.events });
@@ -388,7 +393,10 @@ export class LocalHost {
       if (this.status !== 'playing' || state.phase !== phase || state.turn !== turn) return;
       if (phase === 'phase2' && this.actionCount !== startCount) return;
       const action = autoAction(state, turn, this.random);
-      if (!action || !this.applyAction(turn, action).ok) return;
+      if (!action || !this.applyAction(turn, action).ok) {
+        this.stuck(`autoPlayTurn ${turn}`);
+        return;
+      }
     }
   }
 
@@ -411,14 +419,20 @@ export class LocalHost {
   }
 
   private autoPayDebts(): void {
+    let rejected: PlayerId | null = null;
     for (const id of pendingPlayers(this.state!)) {
       for (let i = 0; i < MAX_AUTO_STEPS; i++) {
         const state = this.state!;
         if (this.status !== 'playing' || state.phase !== 'penalty') return;
         const action = autoAction(state, id, this.random);
-        if (!action || !this.applyAction(id, action).ok) break;
+        if (!action) break;
+        if (!this.applyAction(id, action).ok) {
+          rejected = id;
+          break;
+        }
       }
     }
+    if (rejected !== null) this.stuck(`autoPayDebts ${rejected}`);
   }
 
   private scheduleBots(): void {
@@ -445,9 +459,27 @@ export class LocalHost {
     const state = this.state!;
     if (this.status !== 'playing' || !this.isBotControlled(id) || !pendingPlayers(state).includes(id)) return;
     const action = botAction(state, id, this.random) ?? autoAction(state, id, this.random);
-    if (!action || this.applyAction(id, action).ok) return;
-    const fallback = autoAction(this.state!, id, this.random);
-    if (fallback) this.applyAction(id, fallback);
+    if (action && this.applyAction(id, action).ok) return;
+    const fallback = action ? autoAction(this.state!, id, this.random) : null;
+    if (fallback && this.applyAction(id, fallback).ok) return;
+    // Шаг бота свой таймер уже снял: без перепланирования партия замерла бы навсегда.
+    this.stuck(`botStep ${id}`);
+  }
+
+  /**
+   * Автоматический шаг не прошёл (и ход бота, и запасной автоход отклонены). Свой таймер такой шаг
+   * уже снял, поэтому сначала планируем всё заново — иначе партия замирает без единого события.
+   * Если не расшевелить и за MAX_STUCK_STEPS подряд — это уже не осечка: показываем экран сбоя.
+   */
+  private stuck(what: string): void {
+    if (!this.state || this.status !== 'playing') return;
+    this.stuckSteps++;
+    if (this.stuckSteps >= MAX_STUCK_STEPS) {
+      this.crash(new Error(`stuck: ${what} rejected ${this.stuckSteps} times in a row`));
+      return;
+    }
+    this.pushLog({ at: this.clock.now(), playerId: null, action: null, events: [], note: `retry after ${what}` });
+    this.reschedule();
   }
 
   private scheduleVakhtaCalls(): void {

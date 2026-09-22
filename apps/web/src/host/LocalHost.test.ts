@@ -7,6 +7,17 @@ import type { MatchSettings, SeatInfo } from '../client/types';
 import { LocalHost, type HostOptions } from './LocalHost';
 import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS } from './types';
 
+/** Заглушка движка: по флагу отклоняет любое действие — так воспроизводится отказ и боту, и запасному автоходу. */
+const engine = vi.hoisted(() => ({ rejectAll: false }));
+vi.mock('@vakhta/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@vakhta/engine')>();
+  return {
+    ...actual,
+    apply: (...args: Parameters<typeof actual.apply>) =>
+      engine.rejectAll ? { ok: false as const, error: 'illegal_move' as const } : actual.apply(...args),
+  };
+});
+
 const human = (id: string): SeatInfo => ({ id, name: id, avatar: 'x', isBot: false });
 const bot = (id: string): SeatInfo => ({ id, name: id, avatar: 'x', isBot: true });
 const bots = (n: number) => Array.from({ length: n }, (_, i) => bot(`b${i}`));
@@ -27,7 +38,10 @@ const seq = (...values: number[]) => {
 };
 
 beforeEach(() => vi.useFakeTimers({ now: 0 }));
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  engine.rejectAll = false;
+  vi.useRealTimers();
+});
 
 describe('LocalHost, all-bot sessions', () => {
   it.each([
@@ -262,5 +276,38 @@ describe('LocalHost, vakhta, play-as, autopilot, crash', () => {
     expect(view.me).toBe('me');
     expect(Object.keys(host.getHands())).toEqual(['me', 'b1', 'b2']);
     expect(JSON.stringify(view)).not.toContain('prykup":[');
+  });
+});
+
+describe('LocalHost, a rejected bot action never freezes the match', () => {
+  const twoBots = () => phase1State({ players: [{ id: 'b1', stack: '7H' }, { id: 'b2', stack: 'QC' }], deck: 'KD 8C 9S AS TH JD' });
+
+  it('keeps retrying instead of hanging, and carries on once the engine takes actions again', () => {
+    const host = makeHost({ seats: [bot('b1'), bot('b2')], initialState: twoBots() });
+    host.start();
+    engine.rejectAll = true;
+    const seq = host.getChangeSeq();
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS);
+    const afterFirst = host.getErrorCount();
+    expect(afterFirst).toBeGreaterThanOrEqual(2);
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS);
+    // Шаг перепланирован: отказ не оставил партию без единого висящего таймера.
+    expect(host.getErrorCount()).toBeGreaterThan(afterFirst);
+    expect(host.getChangeSeq()).toBe(seq);
+    expect(host.getStatus()).toBe('playing');
+    engine.rejectAll = false;
+    runUntil(() => host.getStatus() !== 'playing');
+    expect(host.getStatus()).toBe('gameOver');
+    host.dispose();
+  });
+
+  it('surfaces the crash state when the steps keep failing, instead of a silent freeze', () => {
+    const host = makeHost({ seats: [bot('b1'), bot('b2')], initialState: twoBots() });
+    host.start();
+    engine.rejectAll = true;
+    runUntil(() => host.getStatus() !== 'playing', 120_000);
+    expect(host.getStatus()).toBe('crashed');
+    expect(host.getLog().at(-1)!.error).toContain('b1');
+    host.dispose();
   });
 });

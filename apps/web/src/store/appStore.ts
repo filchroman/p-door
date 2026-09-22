@@ -10,6 +10,7 @@ import {
   eventToasts,
   keepSelection,
   nextMarks,
+  nextTableSweep,
   type RecentMarks,
   type Selection,
   type ToastSpec,
@@ -45,6 +46,8 @@ export interface AppState {
   motionEnabled: boolean;
   /** Во сколько раз ускорить анимации текущего шага (очередь догоняет состояние). */
   animSpeed: number;
+  /** Стол уходит в отбой целиком (отбой/затык), а не теряет нижнюю карту в чью-то руку. */
+  tableSweep: boolean;
   makeClient: (setup: MatchSetup) => AppClient;
   preload: (deckSize: DeckSize) => Promise<void>;
   startMatch(setup: MatchSetup): Promise<void>;
@@ -69,10 +72,11 @@ let detach: (() => void) | null = null;
 
 export const useAppStore = create<AppState>()((set, get) => {
   const show = (update: ClientUpdate, speed: number) => {
-    const { marks, selection, debug, client, log } = get();
+    const { marks, selection, debug, client, log, tableSweep } = get();
     set({
       update,
       animSpeed: speed,
+      tableSweep: nextTableSweep(tableSweep, update),
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),
       allHands: debug.showAllHands && client ? client.debug.allHands() : null,
@@ -114,6 +118,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     log: [],
     motionEnabled: true,
     animSpeed: 1,
+    tableSweep: false,
     makeClient: (setup) => createLocalMatch(setup),
     preload: (deckSize) => preloadDeck(deckSize),
 
@@ -132,6 +137,7 @@ export const useAppStore = create<AppState>()((set, get) => {
         screen: 'game',
         update,
         animSpeed: 1,
+        tableSweep: false,
         marks: emptyMarks(update?.session.gameNumber ?? 0),
         selection: null,
         allHands: debug.showAllHands ? client.debug.allHands() : null,

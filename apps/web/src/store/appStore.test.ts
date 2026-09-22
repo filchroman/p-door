@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import { ru } from '../i18n/ru';
 import { testHostOptions } from '../test/hostOptions';
-import { phase1State } from '../test/states';
-import { resetStore } from '../test/updates';
+import { c, phase1State } from '../test/states';
+import { fakeClient, makeUpdate, resetStore } from '../test/updates';
 import { useAppStore } from './appStore';
 import { STEP_MS } from './updatePump';
 
@@ -55,6 +55,18 @@ describe('app store', () => {
     expect(useAppStore.getState().update).toBe(afterDraw);
     vi.advanceTimersByTime(STEP_MS);
     expect(useAppStore.getState().update!.view.drawn).toBeNull();
+  });
+
+  it('remembers whether the table is being swept into the discard or losing its bottom card to a hand', async () => {
+    const { client, emit } = fakeClient(makeUpdate(start(), 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    expect(useAppStore.getState().tableSweep).toBe(false);
+    emit(makeUpdate(start(), 'p0', { events: [{ type: 'vidbiy', closerId: 'p1' }] }));
+    expect(useAppStore.getState().tableSweep).toBe(true);
+    emit(makeUpdate(start(), 'p0', { events: [{ type: 'tookBottom', playerId: 'p1', card: c('7H') }] }));
+    vi.advanceTimersByTime(STEP_MS);
+    expect(useAppStore.getState().tableSweep).toBe(false);
   });
 
   it('shows a Russian toast and vibrates for a rejected intent, and drops the selection', async () => {

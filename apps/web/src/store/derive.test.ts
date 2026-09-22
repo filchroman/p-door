@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ru } from '../i18n/ru';
 import { c, phase1State, phase2State } from '../test/states';
 import { makeUpdate, seatsFor } from '../test/updates';
-import { FX_MS, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks } from './derive';
+import { FX_MS, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, nextTableSweep } from './derive';
 
 const p2 = phase2State({ players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }], trump: 'D', turn: 'A' });
 
@@ -59,6 +59,18 @@ describe('store derive', () => {
     expect(isFresh(marks.caught, 1000 + FX_MS - 1)).toBe(true);
     expect(isFresh(marks.caught, 1000 + FX_MS)).toBe(false);
     expect(isFresh(null, 0)).toBe(false);
+  });
+
+  it('tells a table sweep (whole table to the discard) from a taken bottom card (table to hand)', () => {
+    const sweep = makeUpdate(p2, 'A', { events: [{ type: 'vidbiy', closerId: 'C' }] });
+    const took = makeUpdate(p2, 'A', { events: [{ type: 'tookBottom', playerId: 'B', card: c('6C') }] });
+    const played = makeUpdate(p2, 'A', { events: [{ type: 'played', playerId: 'A', card: c('6C') }] });
+    expect(nextTableSweep(false, sweep)).toBe(true);
+    expect(nextTableSweep(true, took)).toBe(false);
+    // Между уходами со стола флаг держится: иначе он сменится посреди доигрывающего exit.
+    expect(nextTableSweep(true, played)).toBe(true);
+    expect(nextTableSweep(false, played)).toBe(false);
+    expect(nextTableSweep(true, makeUpdate(p2, 'A'))).toBe(true);
   });
 
   it('explains errors in Russian, with the spec wording for a bad beat', () => {

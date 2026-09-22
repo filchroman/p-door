@@ -99,6 +99,20 @@ export function nextMarks(prev: RecentMarks, update: ClientUpdate, now: number =
   return { gameNumber: base.gameNumber, seq, acts, vakhtaBy, vakhtaCaught, caught, outFx, trumpCard, opened };
 }
 
+/**
+ * Куда уходят карты со стола: отбой (и затык) сметает стол целиком — карты улетают (exit);
+ * взятая нижняя переезжает в руку одним элементом по общему layoutId — улетать ей нельзя.
+ * Флаг держится между уходами: иначе он сменился бы посреди доигрывающего exit.
+ */
+export function nextTableSweep(prev: boolean, update: ClientUpdate): boolean {
+  let sweep = prev;
+  for (const event of update.events) {
+    if (event.type === 'vidbiy') sweep = true;
+    else if (event.type === 'tookBottom') sweep = false;
+  }
+  return sweep;
+}
+
 export function eventToasts(update: ClientUpdate): ToastSpec[] {
   const toasts: ToastSpec[] = [];
   for (const event of update.events) {

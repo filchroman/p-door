@@ -1,5 +1,5 @@
 import { viewFor, type GameState, type PlayerId } from '@vakhta/engine';
-import type { ClientUpdate, SeatInfo } from '../client/types';
+import type { AppClient, ClientUpdate, SeatInfo } from '../client/types';
 import { useAppStore, type AppState } from '../store/appStore';
 
 /** Места по состоянию: первое — человек, имя = id, если не задано. */
@@ -16,6 +16,28 @@ export function makeUpdate(state: GameState, me: PlayerId, extra: Partial<Client
     deadlines: { turnEndsAt: null, turnTotalMs: null, penaltyEndsAt: null, penaltyTotalMs: null },
     ...extra,
   };
+}
+
+/** Клиент-заглушка: срезы приходят тогда и такие, какие велит тест (через очередь стора). */
+export function fakeClient(first: ClientUpdate): { client: AppClient; emit: (update: ClientUpdate) => void } {
+  let listener: ((update: ClientUpdate) => void) | null = null;
+  const client: AppClient = {
+    subscribe(l) {
+      listener = l;
+      return () => {
+        listener = null;
+      };
+    },
+    send() {},
+    me: () => first.view.me,
+    onError: () => () => {},
+    nextGame() {},
+    endSession() {},
+    debug: { playAs() {}, setBotSpeed() {}, setAutopilot() {}, allHands: () => ({}), log: () => [] },
+    snapshot: () => first,
+    dispose() {},
+  };
+  return { client, emit: (update) => listener?.(update) };
 }
 
 /** Тестовое окружение: анимации выключены (очередь срезов сливается сразу), предзагрузка мгновенная. */

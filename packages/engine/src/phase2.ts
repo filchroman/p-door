@@ -6,16 +6,27 @@ import type { Action, ErrorCode, GameEvent, GameState, PlayerId, PlayerState } f
 
 /** Столько полных кругов подряд без побития — и срабатывает правило затяжного боя. */
 export const STALL_CIRCLES = 2;
+/** Столько полных кругов подряд без прогресса (даже с побитиями) — и тоже срабатывает затяжной бой. */
+export const IDLE_CIRCLES = 10;
 
 export function applyPhase2(s: GameState, p: PlayerState, action: Action, events: GameEvent[]): ErrorCode | null {
   if (action.type !== 'play' && action.type !== 'take') return 'wrong_phase';
   if (s.turn !== p.id) return 'not_your_turn';
+  const before = progressMark(s);
   const isBeat = action.type === 'play' && s.table.length > 0;
   const error = action.type === 'play' ? play(s, p, action.card, events) : take(s, p, events);
   if (error) return error;
-  s.quietActions = isBeat ? 0 : s.quietActions + 1;
   settleTurn(s, events);
-  if (s.phase === 'phase2' && s.quietActions >= STALL_CIRCLES * activePlayers(s).length) resolveStall(s, p.id, events);
+  if (s.phase !== 'phase2') return null;
+  if (progressMark(s) !== before) {
+    s.quietActions = 0;
+    s.idleActions = 0;
+  } else {
+    s.quietActions = isBeat ? 0 : s.quietActions + 1;
+    s.idleActions++;
+  }
+  const active = activePlayers(s).length;
+  if (s.quietActions >= STALL_CIRCLES * active || s.idleActions >= IDLE_CIRCLES * active) resolveStall(s, p.id, events);
   return null;
 }
 
@@ -78,6 +89,7 @@ export function settleTurn(s: GameState, events: GameEvent[]): void {
 function resolveStall(s: GameState, lastActorId: PlayerId, events: GameEvent[]): void {
   const toMove = s.turn;
   s.quietActions = 0;
+  s.idleActions = 0;
   events.push({ type: 'stall', rule: s.stallRule });
   if (s.stallRule === 'forcedVidbiy') {
     const before = progressMark(s);

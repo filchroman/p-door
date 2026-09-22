@@ -55,5 +55,6 @@ export function createGame(setup: GameSetup): GameState {
     result: null,
     stallRule: setup.stallRule ?? 'forcedVidbiy',
     quietActions: 0,
+    idleActions: 0,
   };
 }

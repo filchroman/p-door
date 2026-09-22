@@ -199,4 +199,30 @@ describe('phase 2: stalled battle', () => {
     expect(r.state.phase).toBe('over');
     expect(r.state.result).toEqual({ loserId: 'A', winnerId: null, outOrder: [], technical: false });
   });
+
+  it('an exit through an empty hand on an empty table resets the counters', () => {
+    const s0 = phase2State({ players: [{ id: 'A', hand: '' }, { id: 'B', hand: 'JH' }, { id: 'C', hand: 'KH 8C' }], trump: 'D', turn: 'C', table: [['9H', 'B']] });
+    s0.quietActions = 3;
+    s0.idleActions = 3;
+    const r = apply(s0, 'C', { type: 'take' }, 0);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(pl(r.state, 'A').out).toBe(true);
+    expect(r.state.quietActions).toBe(0);
+    expect(r.state.idleActions).toBe(0);
+    expect(r.events.some((e) => e.type === 'stall')).toBe(false);
+  });
+
+  it('ten circles without progress trigger the stall rule even with beats', () => {
+    const s0 = phase2State({ players: [{ id: 'A', hand: 'JH' }, { id: 'B', hand: 'QH' }, { id: 'C', hand: 'KC' }], trump: 'D', turn: 'A', table: [['9H', 'C']] });
+    s0.idleActions = 10 * 3 - 1;
+    const r = apply(s0, 'A', { type: 'play', card: c('JH') }, 0);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
+    expect(r.state.table).toEqual([]);
+    expect(r.state.discard).toHaveLength(2);
+    expect(r.state.idleActions).toBe(0);
+    expect(r.state.phase).toBe('phase2');
+  });
 });

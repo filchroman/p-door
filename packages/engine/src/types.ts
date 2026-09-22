@@ -62,6 +62,7 @@ export interface GameState {
   result: GameResult | null;
   stallRule: StallRule;
   quietActions: number; // подряд идущие действия фазы 2 без побития
+  idleActions: number; // подряд идущие действия фазы 2 без прогресса
 }
 
 export type Action =

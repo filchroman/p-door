@@ -1,24 +1,31 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion, type TargetAndTransition } from 'motion/react';
 import type { ReactNode } from 'react';
 import { PlayingCard } from '../../cards/PlayingCard';
 import { useAppStore } from '../../store/appStore';
 import './anim.css';
-import { FADE_MS, FLY_MS } from './motion';
+import { flipMotion } from './motion';
 
 /** Появление рубашкой вверх с переворотом: открытие прикупа, вытянутая и козырная карта. */
 export function FlipIn({ flip, children }: { flip: boolean; children: ReactNode }) {
   const enabled = useAppStore((s) => s.motionEnabled);
+  const speed = useAppStore((s) => s.animSpeed);
   const reduced = useReducedMotion() ?? false;
   if (!flip || !enabled) return <>{children}</>;
-  if (reduced) {
+  const m = flipMotion({ reduced, speed });
+  if (m.reduced) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: FADE_MS / 1000 }}>
+      <motion.div initial={m.initial as TargetAndTransition} animate={m.animate as TargetAndTransition} transition={m.transition}>
         {children}
       </motion.div>
     );
   }
   return (
-    <motion.div className="flip-in" initial={{ rotateY: 180 }} animate={{ rotateY: 0 }} transition={{ duration: FLY_MS / 1000, ease: 'easeOut' }}>
+    <motion.div
+      className="flip-in"
+      initial={m.initial as TargetAndTransition}
+      animate={m.animate as TargetAndTransition}
+      transition={m.transition}
+    >
       <div className="flip-in__front">{children}</div>
       <div className="flip-in__back" aria-hidden="true">
         <PlayingCard card={null} />

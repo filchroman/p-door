@@ -13,6 +13,7 @@ export interface MotionTarget {
   y?: number;
   scale?: number;
   rotate?: number;
+  rotateY?: number;
   opacity?: number;
   transition?: MotionTransition;
 }
@@ -39,6 +40,23 @@ export function cardMotion({ reduced, speed, exit }: { reduced: boolean; speed: 
     exit: exit ? { x: 260, rotate: 25, opacity: 0, transition: { duration: EXIT_MS / 1000 / k, ease: 'easeOut' } } : undefined,
     transition: { duration: FLY_MS / 1000 / k, ease: 'easeOut' },
   };
+}
+
+export interface FlipMotion {
+  /** true — вместо переворота короткое затухание. */
+  reduced: boolean;
+  initial: MotionTarget;
+  animate: MotionTarget;
+  transition: MotionTransition;
+}
+
+/** Переворот рубашкой вверх; как и перелёты, ускоряется, когда очередь срезов догоняет состояние (§2b). */
+export function flipMotion({ reduced, speed }: { reduced: boolean; speed: number }): FlipMotion {
+  const k = Math.max(1, speed);
+  if (reduced) {
+    return { reduced, initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: FADE_MS / 1000 / k, ease: 'easeOut' } };
+  }
+  return { reduced, initial: { rotateY: 180 }, animate: { rotateY: 0 }, transition: { duration: FLY_MS / 1000 / k, ease: 'easeOut' } };
 }
 
 /** will-change только на время анимации — иначе браузер держит слой каждой карты впустую. */

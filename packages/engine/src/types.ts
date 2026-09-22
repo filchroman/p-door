@@ -61,8 +61,7 @@ export interface GameState {
   outOrder: PlayerId[];
   result: GameResult | null;
   stallRule: StallRule;
-  quietActions: number; // подряд идущие действия фазы 2 без побития
-  idleActions: number; // подряд идущие действия фазы 2 без прогресса
+  positions: Record<string, number>; // хэши позиций фазы 2 с последнего прогресса → сколько раз встретились
 }
 
 export type Action =

@@ -1,5 +1,5 @@
 import { sameCard, type Card } from './cards';
-import { settleTurn } from './phase2';
+import { positionHash, settleTurn } from './phase2';
 import { findPlayer } from './state';
 import type { ErrorCode, GameEvent, GameState, PlayerId, PlayerState } from './types';
 import { isWatchOpen } from './vakhta';
@@ -31,4 +31,5 @@ export function maybeStartPhase2(s: GameState, now: number, events: GameEvent[])
   s.turn = winner ?? s.lastCardDrawerId!;
   events.push({ type: 'phase', phase: 'phase2' });
   settleTurn(s, events);
+  if (s.phase === 'phase2') s.positions = { [positionHash(s)]: 1 };
 }

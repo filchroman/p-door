@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { apply } from '../src/apply';
-import type { StallRule } from '../src/types';
+import { legalMoves } from '../src/legal';
+import { fnv1a, positionHash, positionKey } from '../src/phase2';
+import type { Action, GameState, StallRule } from '../src/types';
 import { act, c, cs, phase2State, pl } from './helpers';
 
 // Козырь — бубна. Места: A → B → C → A.
@@ -137,92 +139,141 @@ describe('phase 2: game over', () => {
 });
 
 describe('phase 2: stalled battle', () => {
+  type Step = [string, Action];
+  const lead = (id: string, card: string): Step => [id, { type: 'play', card: c(card) }];
+  const take = (id: string): Step => [id, { type: 'take' }];
+
+  /** Ходит единственным законным ходом (или по политике), пока не появится событие stall. */
+  const untilStall = (s: GameState, pick: (s: GameState) => Action, limit: number) => {
+    for (let i = 1; i <= limit; i++) {
+      const r = apply(s, s.turn, pick(s), 0);
+      if (!r.ok) throw new Error(r.error);
+      if (r.events.some((e) => e.type === 'stall')) return { r, actions: i };
+      s = r.state;
+      expect(s.phase).toBe('phase2');
+    }
+    throw new Error(`no stall within ${limit} actions`);
+  };
+
+  const onlyMove = (s: GameState): Action => {
+    const lm = legalMoves(s, s.turn);
+    const options: Action[] = [...lm.playable.map((card): Action => ({ type: 'play', card })), ...(lm.canTake ? [{ type: 'take' } as Action] : [])];
+    expect(options).toHaveLength(1);
+    return options[0];
+  };
+
   // Трое активных, козырь ♥, никто не может побить: заходы и взятия чередуются бесконечно.
+  // Цикл — 12 ходов; позиция после 1-го хода (A зашёл 3C, у всех кроме C пусто) в 3-й раз — на 25-м ходу.
   const trap = (stallRule?: StallRule) =>
     phase2State({ players: [{ id: 'A', hand: '3C' }, { id: 'B', hand: '' }, { id: 'C', hand: '2C' }], trump: 'H', turn: 'A', deckSize: 52, stallRule });
 
-  const runTrap = (stallRule?: StallRule) => {
-    let s = trap(stallRule);
-    s = act(s, 'A', { type: 'play', card: c('3C') });
-    s = act(s, 'B', { type: 'take' });
-    s = act(s, 'C', { type: 'play', card: c('2C') });
-    s = act(s, 'A', { type: 'take' });
-    s = act(s, 'B', { type: 'play', card: c('3C') });
-    expect(s.quietActions).toBe(5);
-    return apply(s, 'C', { type: 'take' }, 0);
-  };
-
-  it('two full circles without a beat force a vidbiy by default', () => {
-    const r = runTrap();
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
+  it('the trap: a position seen for the 3rd time forces a vidbiy, and the game ends', () => {
+    const { r, actions } = untilStall(trap(), onlyMove, 40);
+    expect(actions).toBe(25);
     expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
-    expect(pl(r.state, 'B').out).toBe(true);
-    expect(r.state.outOrder).toEqual(['B']);
-    expect(r.state.phase).toBe('phase2');
-    expect(r.state.turn).toBe('C');
-    expect(r.state.quietActions).toBe(0);
+    let s = r.state;
+    for (let i = 0; i < 40 && s.phase !== 'over'; i++) s = act(s, s.turn, onlyMove(s));
+    expect(s.phase).toBe('over');
+    // Отбой закрывает A (зашёл 3C): A и B с пустыми руками выходят по часовой от A, C проигрывает.
+    expect(s.result).toEqual({ loserId: 'C', winnerId: 'A', outOrder: ['A', 'B'], technical: false });
   });
 
-  it('endGame rule: the player with most cards loses, ties go clockwise from the player to move', () => {
-    const r = runTrap('endGame');
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
+  it('the trap under endGame: most cards loses, ties clockwise from the player to move', () => {
+    const { r, actions } = untilStall(trap('endGame'), onlyMove, 40);
+    expect(actions).toBe(25);
     expect(r.events).toContainEqual({ type: 'stall', rule: 'endGame' });
     expect(r.state.phase).toBe('over');
-    expect(r.state.result).toEqual({ loserId: 'A', winnerId: null, outOrder: [], technical: false });
+    // Ходит B; карты: B 0, C 1 (2C), A 0 (3C на столе) → проигрывает C.
+    expect(r.state.result).toEqual({ loserId: 'C', winnerId: null, outOrder: [], technical: false });
   });
 
-  it('a beat resets the counter; leads and takes increase it', () => {
-    const s0 = phase2State({ players: [{ id: 'A', hand: 'JH 7C' }, { id: 'B', hand: 'QH' }, { id: 'C', hand: 'KC' }], trump: 'D', turn: 'A', table: [['9H', 'C']] });
-    s0.quietActions = 4;
-    expect(act(s0, 'A', { type: 'play', card: c('JH') }).quietActions).toBe(0);
-    const taken = apply(s0, 'A', { type: 'take' }, 0);
-    expect(taken.ok && taken.state.quietActions).toBe(5);
-    expect(taken.ok && taken.events.some((e) => e.type === 'stall')).toBe(false);
-    const lead = phase2State({ players: [{ id: 'A', hand: '7C' }, { id: 'B', hand: 'QH' }], trump: 'D', turn: 'A' });
-    expect(act(lead, 'A', { type: 'play', card: c('7C') }).quietActions).toBe(1);
-  });
-
-  it('a forced vidbiy that changes nothing ends the game by card count', () => {
-    // Козырь ♦, у всех разные масти без козырей: побить невозможно, и пустой руки на пустом столе не бывает.
-    let s = phase2State({ players: [{ id: 'A', hand: '2S' }, { id: 'B', hand: '4C' }, { id: 'C', hand: '7H' }], trump: 'D', turn: 'A', deckSize: 52 });
-    s = act(s, 'A', { type: 'play', card: c('2S') });
-    s = act(s, 'B', { type: 'take' });
-    s = act(s, 'C', { type: 'play', card: c('7H') });
-    s = act(s, 'A', { type: 'take' });
-    s = act(s, 'B', { type: 'play', card: c('4C') });
-    const r = apply(s, 'C', { type: 'take' }, 0);
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
+  it('a no-beat trap without an empty hand: the no-op forced vidbiy ends the game by card count', () => {
+    // Козырь ♦, у всех разные масти без козырей: побить невозможно. Позиция старта засчитана, как при начале фазы 2.
+    const s0 = phase2State({ players: [{ id: 'A', hand: '2S' }, { id: 'B', hand: '4C' }, { id: 'C', hand: '7H' }], trump: 'D', turn: 'A', deckSize: 52 });
+    s0.positions = { [positionHash(s0)]: 1 };
+    const policy = (s: GameState): Action => {
+      if (s.table.length > 0) {
+        expect(legalMoves(s, s.turn).playable).toEqual([]);
+        return { type: 'take' };
+      }
+      return { type: 'play', card: pl(s, s.turn).hand[0] };
+    };
+    // Цикл из 18 ходов возвращает стартовую позицию; в 3-й раз — на 36-м ходу, стол пуст, пустых рук нет.
+    const { r, actions } = untilStall(s0, policy, 60);
+    expect(actions).toBe(36);
+    expect(r.events).toEqual([
+      { type: 'tookBottom', playerId: 'C', card: c('7H') },
+      { type: 'stall', rule: 'forcedVidbiy' },
+      { type: 'vidbiy', closerId: 'C' },
+      { type: 'gameOver', result: { loserId: 'A', winnerId: null, outOrder: [], technical: false } },
+    ]);
     expect(r.state.phase).toBe('over');
     expect(r.state.result).toEqual({ loserId: 'A', winnerId: null, outOrder: [], technical: false });
   });
 
-  it('an exit through an empty hand on an empty table resets the counters', () => {
+  it('normal play does not stall: lead, take, lead, take until the leader runs out', () => {
+    let s = phase2State({ players: [{ id: 'A', hand: 'AS KS 7C 8C 9C' }, { id: 'B', hand: '6H 8H JH QH' }], trump: 'D', turn: 'A' });
+    const events = [];
+    for (let i = 0; i < 20 && s.phase !== 'over'; i++) {
+      const action: Action = s.turn === 'A' ? { type: 'play', card: pl(s, 'A').hand[0] } : { type: 'take' };
+      const r = apply(s, s.turn, action, 0);
+      if (!r.ok) throw new Error(r.error);
+      events.push(...r.events);
+      s = r.state;
+    }
+    expect(events.some((e) => e.type === 'stall')).toBe(false);
+    expect(s.phase).toBe('over');
+    expect(s.result).toEqual({ loserId: 'B', winnerId: 'A', outOrder: ['A'], technical: false });
+  });
+
+  it('progress resets the history: an exit through an empty hand on an empty table', () => {
     const s0 = phase2State({ players: [{ id: 'A', hand: '' }, { id: 'B', hand: 'JH' }, { id: 'C', hand: 'KH 8C' }], trump: 'D', turn: 'C', table: [['9H', 'B']] });
-    s0.quietActions = 3;
-    s0.idleActions = 3;
+    s0.positions = { x: 2, y: 1 };
     const r = apply(s0, 'C', { type: 'take' }, 0);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(pl(r.state, 'A').out).toBe(true);
-    expect(r.state.quietActions).toBe(0);
-    expect(r.state.idleActions).toBe(0);
+    expect(r.state.positions).toEqual({ [positionHash(r.state)]: 1 });
     expect(r.events.some((e) => e.type === 'stall')).toBe(false);
   });
 
-  it('ten circles without progress trigger the stall rule even with beats', () => {
-    const s0 = phase2State({ players: [{ id: 'A', hand: 'JH' }, { id: 'B', hand: 'QH' }, { id: 'C', hand: 'KC' }], trump: 'D', turn: 'A', table: [['9H', 'C']] });
-    s0.idleActions = 10 * 3 - 1;
-    const r = apply(s0, 'A', { type: 'play', card: c('JH') }, 0);
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
-    expect(r.state.table).toEqual([]);
-    expect(r.state.discard).toHaveLength(2);
-    expect(r.state.idleActions).toBe(0);
-    expect(r.state.phase).toBe('phase2');
+  it('a position without progress is counted; the 3rd occurrence fires', () => {
+    const s0 = phase2State({ players: [{ id: 'A', hand: 'JH 7C' }, { id: 'B', hand: 'QH' }, { id: 'C', hand: 'KC' }], trump: 'D', turn: 'A', table: [['9H', 'C']] });
+    const once = act(s0, 'A', { type: 'take' });
+    expect(once.positions).toEqual({ [positionHash(once)]: 1 });
+    const twice = { ...s0, positions: { [positionHash(once)]: 1 } };
+    expect(act(twice, 'A', { type: 'take' }).positions).toEqual({ [positionHash(once)]: 2 });
+    const r = apply({ ...s0, positions: { [positionHash(once)]: 2 } }, 'A', { type: 'take' }, 0);
+    expect(r.ok && r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
+  });
+
+  it('positions are keyed by a compact FNV-1a hash of the readable key', () => {
+    const s = phase2State({ players: [{ id: 'A', hand: 'JH 7C' }, { id: 'B', hand: 'QH' }], trump: 'D', turn: 'A', table: [['9H', 'B']] });
+    expect(positionKey(s)).toBe('A#9HB#7C,JH|QH');
+    expect(positionHash(s)).toMatch(/^[0-9a-f]{8}$/);
+    expect(positionHash(s)).toBe(fnv1a(positionKey(s)));
+    expect(positionHash({ ...s, turn: 'B' })).not.toBe(positionHash(s));
+  });
+
+  it('a loop with beats is caught too', () => {
+    // Козырь ♣, A вне игры. B, C, D гоняют KS, QS, KD, 6D: заход → побил → взял → взял; цикл 24 хода.
+    let s = phase2State({ players: [{ id: 'A', hand: '', out: true }, { id: 'B', hand: 'QS' }, { id: 'C', hand: 'KS 6D' }, { id: 'D', hand: 'KD' }], trump: 'C', turn: 'B' });
+    const cycle: Step[] = [
+      lead('B', 'QS'), lead('C', 'KS'), take('D'), take('B'),
+      lead('C', '6D'), lead('D', 'KD'), take('B'), take('C'),
+      lead('D', 'QS'), lead('B', 'KS'), take('C'), take('D'),
+      lead('B', '6D'), lead('C', 'KD'), take('D'), take('B'),
+      lead('C', 'QS'), lead('D', 'KS'), take('B'), take('C'),
+      lead('D', '6D'), lead('B', 'KD'), take('C'), take('D'),
+    ];
+    let stallAt = 0;
+    for (let i = 0; i < 60 && !stallAt; i++) {
+      const [id, action] = cycle[i % cycle.length];
+      const r = apply(s, id, action, 0);
+      if (!r.ok) throw new Error(`${i} ${id} ${action.type}: ${r.error}`);
+      if (r.events.some((e) => e.type === 'stall')) stallAt = i + 1;
+      s = r.state;
+    }
+    expect(stallAt).toBe(49);
   });
 });

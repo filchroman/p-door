@@ -1,32 +1,48 @@
-import { sameCard, type Card } from './cards';
+import { cardToString, sameCard, type Card } from './cards';
 import { canBeat } from './combat';
 import { checkGameOver, finish, markOut } from './result';
 import { activePlayers, findPlayer, nextActive, seatOrderFrom } from './state';
 import type { Action, ErrorCode, GameEvent, GameState, PlayerId, PlayerState } from './types';
 
-/** Столько полных кругов подряд без побития — и срабатывает правило затяжного боя. */
-export const STALL_CIRCLES = 2;
-/** Столько полных кругов подряд без прогресса (даже с побитиями) — и тоже срабатывает затяжной бой. */
-export const IDLE_CIRCLES = 10;
+/** Позиция, встреченная столько раз с последнего прогресса, — это затяжной бой. */
+export const STALL_REPEATS = 3;
+
+/** Чей ход + стол (карта и кто положил, снизу вверх) + руки не вышедших игроков как множества. */
+export function positionKey(s: GameState): string {
+  const hands = s.players.map((p) => (p.out ? '-' : p.hand.map(cardToString).sort().join(','))).join('|');
+  const table = s.table.map((t) => `${cardToString(t.card)}${t.by}`).join(',');
+  return `${s.turn}#${table}#${hands}`;
+}
+
+/** FNV-1a, 32 бита, hex: история позиций хранит короткие хэши, а не полные ключи. */
+export function fnv1a(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+export function positionHash(s: GameState): string {
+  return fnv1a(positionKey(s));
+}
 
 export function applyPhase2(s: GameState, p: PlayerState, action: Action, events: GameEvent[]): ErrorCode | null {
   if (action.type !== 'play' && action.type !== 'take') return 'wrong_phase';
   if (s.turn !== p.id) return 'not_your_turn';
   const before = progressMark(s);
-  const isBeat = action.type === 'play' && s.table.length > 0;
   const error = action.type === 'play' ? play(s, p, action.card, events) : take(s, p, events);
   if (error) return error;
   settleTurn(s, events);
   if (s.phase !== 'phase2') return null;
+  const key = positionHash(s);
   if (progressMark(s) !== before) {
-    s.quietActions = 0;
-    s.idleActions = 0;
-  } else {
-    s.quietActions = isBeat ? 0 : s.quietActions + 1;
-    s.idleActions++;
+    s.positions = { [key]: 1 };
+    return null;
   }
-  const active = activePlayers(s).length;
-  if (s.quietActions >= STALL_CIRCLES * active || s.idleActions >= IDLE_CIRCLES * active) resolveStall(s, p.id, events);
+  s.positions[key] = (s.positions[key] ?? 0) + 1;
+  if (s.positions[key] >= STALL_REPEATS) resolveStall(s, p.id, events);
   return null;
 }
 
@@ -88,19 +104,19 @@ export function settleTurn(s: GameState, events: GameEvent[]): void {
 
 function resolveStall(s: GameState, lastActorId: PlayerId, events: GameEvent[]): void {
   const toMove = s.turn;
-  s.quietActions = 0;
-  s.idleActions = 0;
   events.push({ type: 'stall', rule: s.stallRule });
   if (s.stallRule === 'forcedVidbiy') {
     const before = progressMark(s);
     vidbiy(s, lastActorId, events);
     settleTurn(s, events);
-    if (s.phase !== 'phase2' || progressMark(s) !== before) return;
+    if (s.phase === 'phase2' && progressMark(s) === before) endByCardCount(s, toMove, events);
+  } else {
+    endByCardCount(s, toMove, events);
   }
-  endByCardCount(s, toMove, events);
+  s.positions = s.phase === 'phase2' ? { [positionHash(s)]: 1 } : {};
 }
 
-/** Меняется, только если принудительный отбой что-то сделал: ушли карты, кто-то вышел или открыл прикуп. */
+/** Прогресс: ушли карты в отбой, кто-то вышел или открыл прикуп. */
 function progressMark(s: GameState): string {
   const prykups = s.players.reduce((n, p) => n + p.prykup.length, 0);
   return `${s.discard.length}/${s.outOrder.length}/${prykups}`;

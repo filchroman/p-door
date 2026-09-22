@@ -9,4 +9,4 @@ export { legalMoves, type LegalMoves } from './legal';
 export { autoAction } from './auto';
 export * from './session';
 export { VAKHTA_GRACE_MS } from './vakhta';
-export { STALL_CIRCLES, IDLE_CIRCLES } from './phase2';
+export { STALL_REPEATS } from './phase2';

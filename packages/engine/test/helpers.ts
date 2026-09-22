@@ -26,8 +26,7 @@ function baseState(deckSize: DeckSize): GameState {
     outOrder: [],
     result: null,
     stallRule: 'forcedVidbiy',
-    quietActions: 0,
-    idleActions: 0,
+    positions: {},
   };
 }
 

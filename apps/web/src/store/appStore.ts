@@ -69,14 +69,16 @@ let detach: (() => void) | null = null;
 
 export const useAppStore = create<AppState>()((set, get) => {
   const show = (update: ClientUpdate, speed: number) => {
-    const { marks, selection, debug, client } = get();
+    const { marks, selection, debug, client, log } = get();
     set({
       update,
       animSpeed: speed,
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),
       allHands: debug.showAllHands && client ? client.debug.allHands() : null,
-      log: client ? client.debug.log() : [],
+      // Панель отладки закрыта в подавляющее большинство времени — не читаем журнал на каждом
+      // срезе очереди анимаций, только пока он виден (иначе лишняя работа на каждый ход бота).
+      log: debug.open && client ? client.debug.log() : log,
     });
     for (const toast of eventToasts(update)) get().pushToast(toast.text, toast.tone);
   };
@@ -176,7 +178,10 @@ export const useAppStore = create<AppState>()((set, get) => {
     },
 
     toggleDebug() {
-      set({ debug: { ...get().debug, open: !get().debug.open } });
+      const open = !get().debug.open;
+      const client = get().client;
+      // Открыли панель — журнал мог отстать (не читался, пока она была закрыта): освежаем сразу.
+      set({ debug: { ...get().debug, open }, log: open && client ? client.debug.log() : get().log });
     },
 
     setShowAllHands(on) {

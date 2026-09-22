@@ -77,9 +77,26 @@ describe('app store', () => {
     useAppStore.getState().playAs('p0');
     useAppStore.getState().setBotSpeed(3);
     useAppStore.getState().setAutopilot(true);
-    expect(useAppStore.getState().debug).toMatchObject({ botSpeed: 3, autopilot: true });
+    useAppStore.getState().toggleDebug();
+    expect(useAppStore.getState().debug).toMatchObject({ botSpeed: 3, autopilot: true, open: true });
     vi.advanceTimersByTime(1000);
     expect(useAppStore.getState().log.some((e) => e.playerId === 'p0' && e.action?.type === 'draw')).toBe(true);
+  });
+
+  it('reads the log from the client only while the debug panel is open, not on every queued update', async () => {
+    await useAppStore.getState().startMatch(setup);
+    const client = useAppStore.getState().client!;
+    const logSpy = vi.spyOn(client.debug, 'log');
+    logSpy.mockClear();
+    useAppStore.getState().send({ type: 'draw' });
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(useAppStore.getState().log).toEqual([]);
+    useAppStore.getState().toggleDebug();
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().log.length).toBeGreaterThan(0);
+    logSpy.mockClear();
+    useAppStore.getState().playAs('p0');
+    expect(logSpy).toHaveBeenCalledTimes(1);
   });
 
   it('show all hands pulls hands from the client', async () => {

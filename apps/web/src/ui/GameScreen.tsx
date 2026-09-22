@@ -1,6 +1,6 @@
 import { useAppStore } from '../store/appStore';
 import { Phase1Screen } from './table/Phase1Screen';
-import { TableScreen } from './table/TableScreen';
+import { Phase2Screen } from './table/Phase2Screen';
 import { VakhtaButton } from './table/VakhtaButton';
 
 export function GameScreen() {
@@ -8,7 +8,7 @@ export function GameScreen() {
   if (!update) return null;
   return (
     <>
-      {update.view.phase === 'phase1' ? <Phase1Screen /> : <TableScreen center={null} mine={null} action={null} />}
+      {update.view.phase === 'phase1' ? <Phase1Screen /> : <Phase2Screen />}
       <VakhtaButton />
     </>
   );

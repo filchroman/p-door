@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "test": "vitest run",
+    "test:e2e": "npm run test:e2e -w @vakhta/web",
     "typecheck": "tsc -p packages/engine && tsc -p apps/web",
     "dev": "npm run dev -w @vakhta/web"
   },

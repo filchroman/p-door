@@ -81,6 +81,10 @@ function playGame(s: GameState, random: () => number): GameState {
     for (const p of s.players) expect(viewFor(s, p.id, now).myHand).toEqual(p.hand);
     expectHiddenInfoKept(s, now);
     if (s.phase === 'phase2') expect(s.players.find((p) => p.id === s.turn)!.out).toBe(false);
+    // Пустой стол — отбой для всех: в покое при пустом столе пустых рук у активных не остаётся.
+    if (s.phase === 'phase2' && s.table.length === 0) {
+      expect(s.players.filter((p) => !p.out && p.hand.length === 0).map((p) => p.id)).toEqual([]);
+    }
   }
   return s;
 }

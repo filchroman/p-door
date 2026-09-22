@@ -34,7 +34,7 @@ export function applyPhase2(s: GameState, p: PlayerState, action: Action, events
   const before = progressMark(s);
   const error = action.type === 'play' ? play(s, p, action.card, events) : take(s, p, events);
   if (error) return error;
-  settleTurn(s, events);
+  settleEmptyTable(s, p.id, events);
   if (s.phase !== 'phase2') return null;
   const key = positionHash(s);
   if (progressMark(s) !== before) {
@@ -68,16 +68,12 @@ function take(s: GameState, p: PlayerState, events: GameEvent[]): ErrorCode | nu
   return null;
 }
 
+/** Отбой: стол уходит в сброс, ход остаётся за закрывшим. Пустые руки разберёт settleEmptyTable. */
 function vidbiy(s: GameState, closerId: PlayerId, events: GameEvent[]): void {
   s.discard.push(...s.table.map((t) => t.card));
   s.table = [];
   events.push({ type: 'vidbiy', closerId });
-  for (const id of seatOrderFrom(s, closerId)) {
-    const pl = findPlayer(s, id)!;
-    if (!pl.out && pl.hand.length === 0) unlockOrExit(s, pl, events);
-  }
-  if (checkGameOver(s, events)) return;
-  s.turn = findPlayer(s, closerId)!.out ? nextActive(s, closerId) : closerId;
+  s.turn = closerId;
 }
 
 function unlockOrExit(s: GameState, p: PlayerState, events: GameEvent[]): void {
@@ -90,16 +86,20 @@ function unlockOrExit(s: GameState, p: PlayerState, events: GameEvent[]): void {
   }
 }
 
-/** Пустая рука и пустой стол в свой ход — это отбой для этого игрока. */
-export function settleTurn(s: GameState, events: GameEvent[]): void {
-  while (s.phase === 'phase2') {
-    const p = findPlayer(s, s.turn)!;
-    if (p.hand.length > 0 || s.table.length > 0) return;
-    unlockOrExit(s, p, events);
-    if (!p.out) return;
-    if (checkGameOver(s, events)) return;
-    s.turn = nextActive(s, p.id);
+/**
+ * Пустой стол считается отбоем для всех: каждый активный игрок с пустой рукой открывает прикуп,
+ * а если прикупа нет — выходит, не дожидаясь своей очереди. Порядок — по часовой стрелке от
+ * сделавшего последнее действие (он же задаёт порядок выхода и победителя).
+ * Если ход принадлежал вышедшему, ходит следующий активный игрок.
+ */
+export function settleEmptyTable(s: GameState, actorId: PlayerId, events: GameEvent[]): void {
+  if (s.phase !== 'phase2' || s.table.length > 0) return;
+  for (const id of seatOrderFrom(s, actorId)) {
+    const p = findPlayer(s, id)!;
+    if (!p.out && p.hand.length === 0) unlockOrExit(s, p, events);
   }
+  if (checkGameOver(s, events)) return;
+  if (findPlayer(s, s.turn)!.out) s.turn = nextActive(s, s.turn);
 }
 
 function resolveStall(s: GameState, lastActorId: PlayerId, events: GameEvent[]): void {
@@ -108,7 +108,7 @@ function resolveStall(s: GameState, lastActorId: PlayerId, events: GameEvent[]):
   if (s.stallRule === 'forcedVidbiy') {
     const before = progressMark(s);
     vidbiy(s, lastActorId, events);
-    settleTurn(s, events);
+    settleEmptyTable(s, lastActorId, events);
     if (s.phase === 'phase2' && progressMark(s) === before) endByCardCount(s, toMove, events);
   } else {
     endByCardCount(s, toMove, events);

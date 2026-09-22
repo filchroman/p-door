@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { apply } from '../src/apply';
 import { legalMoves } from '../src/legal';
 import { fnv1a, positionHash, positionKey } from '../src/phase2';
-import type { Action, GameState, StallRule } from '../src/types';
+import type { Action, GameEvent, GameState, StallRule } from '../src/types';
 import { act, c, cs, phase2State, pl } from './helpers';
 
 // Козырь — бубна. Места: A → B → C → A.
@@ -118,6 +118,69 @@ describe('phase 2: vidbiy, prykup, exit', () => {
   });
 });
 
+// Пустой стол — отбой для всех: каждый активный игрок с пустой рукой открывает прикуп
+// или выходит, не дожидаясь своей очереди. Порядок — по часовой от сделавшего ход.
+describe('phase 2: an empty table settles every empty hand', () => {
+  it('the card taken away was my last one: my prykup opens right away, out of turn', () => {
+    let s = phase2State({ players: [{ id: 'A', hand: '7S', prykup: '6S 9S' }, { id: 'B', hand: 'KC' }, { id: 'C', hand: 'QH' }], trump: 'D', turn: 'A' });
+    s = act(s, 'A', { type: 'play', card: c('7S') });
+    expect(pl(s, 'A').hand).toEqual([]);
+    expect(pl(s, 'A').prykup).toEqual(cs('6S 9S'));
+    s = act(s, 'B', { type: 'take' });
+    expect(s.table).toEqual([]);
+    expect(pl(s, 'A').hand).toEqual(cs('6S 9S'));
+    expect(pl(s, 'A').prykup).toEqual([]);
+    expect(s.turn).toBe('C');
+  });
+
+  it('the same, with no prykup left: the player is out immediately, though it is not their turn', () => {
+    let s = phase2State({ players: [{ id: 'A', hand: '7S' }, { id: 'B', hand: 'KC' }, { id: 'C', hand: 'QH' }], trump: 'D', turn: 'A' });
+    s = act(s, 'A', { type: 'play', card: c('7S') });
+    const r = apply(s, 'B', { type: 'take' }, 0);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.events).toEqual([
+      { type: 'tookBottom', playerId: 'B', card: c('7S') },
+      { type: 'out', playerId: 'A' },
+    ]);
+    expect(pl(r.state, 'A').out).toBe(true);
+    expect(r.state.outOrder).toEqual(['A']);
+    expect(r.state.phase).toBe('phase2');
+    expect(r.state.turn).toBe('C');
+  });
+
+  it('several empty hands settle at once, clockwise from the actor, past players who still hold cards', () => {
+    // Места A → B → C → D. Ходит B с пустой рукой: обязан взять. Стол пустеет.
+    let s = phase2State({ players: [{ id: 'A', hand: '' }, { id: 'B', hand: '' }, { id: 'C', hand: 'KC' }, { id: 'D', hand: '' }], trump: 'D', turn: 'B', table: [['7S', 'A']] });
+    s = act(s, 'B', { type: 'take' });
+    // C держит карты и никого не заслоняет: по часовой от B выходят D, потом A.
+    expect(s.outOrder).toEqual(['D', 'A']);
+    expect(s.phase).toBe('phase2');
+    expect(s.turn).toBe('C');
+    s = act(s, 'C', { type: 'play', card: c('KC') });
+    s = act(s, 'B', { type: 'take' }); // ♠7 не бьёт ♣K, остаётся взять — стол снова пуст, C опустел
+    expect(s.phase).toBe('over');
+    expect(s.result).toEqual({ loserId: 'B', winnerId: 'D', outOrder: ['D', 'A', 'C'], technical: false });
+  });
+
+  it('when the settle leaves a single active player, the game ends and that player loses', () => {
+    const s = act(phase2State({ players: [{ id: 'A', hand: '' }, { id: 'B', hand: '' }, { id: 'C', hand: 'QH' }], trump: 'D', turn: 'C', table: [['7S', 'A']] }), 'C', { type: 'take' });
+    expect(s.phase).toBe('over');
+    expect(s.result).toEqual({ loserId: 'C', winnerId: 'A', outOrder: ['A', 'B'], technical: false });
+  });
+
+  it('a vidbiy still settles everyone clockwise from the closer: prykup opens, empty hands go out', () => {
+    const s = act(phase2State({ players: [{ id: 'A', hand: '', prykup: '6S' }, { id: 'B', hand: '' }, { id: 'C', hand: 'KH QC' }], trump: 'D', turn: 'C', table: [['7H', 'A'], ['9H', 'B']] }), 'C', { type: 'play', card: c('KH') });
+    expect(s.table).toEqual([]);
+    expect(s.discard).toHaveLength(3);
+    expect(pl(s, 'A').hand).toEqual(cs('6S'));
+    expect(pl(s, 'B').out).toBe(true);
+    expect(s.outOrder).toEqual(['B']);
+    expect(s.phase).toBe('phase2');
+    expect(s.turn).toBe('C');
+  });
+});
+
 describe('phase 2: game over', () => {
   it('the last player with cards loses; first out wins', () => {
     const s = act(phase2State({ players: [{ id: 'A', hand: 'JH' }, { id: 'B', hand: 'KC 8D' }], trump: 'D', turn: 'A', table: [['9H', 'B']] }), 'A', { type: 'play', card: c('JH') });
@@ -162,52 +225,76 @@ describe('phase 2: stalled battle', () => {
     return options[0];
   };
 
-  // Трое активных, козырь ♥, никто не может побить: заходы и взятия чередуются бесконечно.
-  // Цикл — 12 ходов; позиция после 1-го хода (A зашёл 3C, у всех кроме C пусто) в 3-й раз — на 25-м ходу.
+  const anyMove = (s: GameState): Action => {
+    const lm = legalMoves(s, s.turn);
+    return lm.playable.length > 0 ? { type: 'play', card: lm.playable[0] } : { type: 'take' };
+  };
+
+  // Козырь ♣, A уже вышел. B, C, D гоняют KS, QS, KD, 6D: заход → побил → взял → взял; цикл 24 хода.
+  // Пустой стол случается только тогда, когда пустых рук нет, поэтому цепочка крутится по кругу
+  // и позиция после захода B повторяется в 3-й раз на 49-м ходу.
   const trap = (stallRule?: StallRule) =>
-    phase2State({ players: [{ id: 'A', hand: '3C' }, { id: 'B', hand: '' }, { id: 'C', hand: '2C' }], trump: 'H', turn: 'A', deckSize: 52, stallRule });
+    phase2State({ players: [{ id: 'A', hand: '', out: true }, { id: 'B', hand: 'QS' }, { id: 'C', hand: 'KS 6D' }, { id: 'D', hand: 'KD' }], trump: 'C', turn: 'B', stallRule });
+
+  const trapCycle: Step[] = [
+    lead('B', 'QS'), lead('C', 'KS'), take('D'), take('B'),
+    lead('C', '6D'), lead('D', 'KD'), take('B'), take('C'),
+    lead('D', 'QS'), lead('B', 'KS'), take('C'), take('D'),
+    lead('B', '6D'), lead('C', 'KD'), take('D'), take('B'),
+    lead('C', 'QS'), lead('D', 'KS'), take('B'), take('C'),
+    lead('D', '6D'), lead('B', 'KD'), take('C'), take('D'),
+  ];
+
+  /** Ходит по кругу трап-цикла: на каждом шаге ход и так принадлежит нужному игроку. */
+  const cyclePick = () => {
+    let i = 0;
+    return (): Action => trapCycle[i++ % trapCycle.length][1];
+  };
 
   it('the trap: a position seen for the 3rd time forces a vidbiy, and the game ends', () => {
-    const { r, actions } = untilStall(trap(), onlyMove, 40);
-    expect(actions).toBe(25);
+    const { r, actions } = untilStall(trap(), cyclePick(), 60);
+    expect(actions).toBe(49);
     expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
+    // Принудительный отбой закрывает B, только что зашедший последней картой: рука пуста,
+    // прикупа нет → B выходит, значит отбой был продуктивным и партия продолжается.
+    expect(r.events).toContainEqual({ type: 'vidbiy', closerId: 'B' });
+    expect(r.state.outOrder).toEqual(['A', 'B']);
     let s = r.state;
-    for (let i = 0; i < 40 && s.phase !== 'over'; i++) s = act(s, s.turn, onlyMove(s));
+    expect(s.phase).toBe('phase2');
+    for (let i = 0; i < 40 && s.phase !== 'over'; i++) s = act(s, s.turn, anyMove(s));
     expect(s.phase).toBe('over');
-    // Отбой закрывает A (зашёл 3C): A и B с пустыми руками выходят по часовой от A, C проигрывает.
-    expect(s.result).toEqual({ loserId: 'C', winnerId: 'A', outOrder: ['A', 'B'], technical: false });
+    expect(s.result).toEqual({ loserId: 'D', winnerId: 'A', outOrder: ['A', 'B', 'C'], technical: false });
   });
 
-  it('the trap under endGame: most cards loses, ties clockwise from the player to move', () => {
-    const { r, actions } = untilStall(trap('endGame'), onlyMove, 40);
-    expect(actions).toBe(25);
+  it('the trap under endGame: most cards loses', () => {
+    const { r, actions } = untilStall(trap('endGame'), cyclePick(), 60);
+    expect(actions).toBe(49);
     expect(r.events).toContainEqual({ type: 'stall', rule: 'endGame' });
     expect(r.state.phase).toBe('over');
-    // Ходит B; карты: B 0, C 1 (2C), A 0 (3C на столе) → проигрывает C.
-    expect(r.state.result).toEqual({ loserId: 'C', winnerId: null, outOrder: [], technical: false });
+    // Ходит C; карты: C 2 (KS, 6D), D 1 (KD), B 0 (QS на столе) → проигрывает C.
+    expect(r.state.result).toEqual({ loserId: 'C', winnerId: 'A', outOrder: ['A'], technical: false });
   });
 
-  it('a no-beat trap without an empty hand: the no-op forced vidbiy ends the game by card count', () => {
-    // Козырь ♦, у всех разные масти без козырей: побить невозможно. Позиция старта засчитана, как при начале фазы 2.
-    const s0 = phase2State({ players: [{ id: 'A', hand: '2S' }, { id: 'B', hand: '4C' }, { id: 'C', hand: '7H' }], trump: 'D', turn: 'A', deckSize: 52 });
-    s0.positions = { [positionHash(s0)]: 1 };
-    const policy = (s: GameState): Action => {
-      if (s.table.length > 0) {
-        expect(legalMoves(s, s.turn).playable).toEqual([]);
-        return { type: 'take' };
-      }
-      return { type: 'play', card: pl(s, s.turn).hand[0] };
-    };
-    // Цикл из 18 ходов возвращает стартовую позицию; в 3-й раз — на 36-м ходу, стол пуст, пустых рук нет.
-    const { r, actions } = untilStall(s0, policy, 60);
-    expect(actions).toBe(36);
+  it('a stall on an empty table without empty hands: the no-op forced vidbiy ends the game by card count', () => {
+    // Козырь ♦; C нечем бить ♥9 и он забирает её — стол пустеет, но пустых рук нет,
+    // так что ни отбоя, ни выхода: прогресса нет и позиция считается.
+    const s0 = phase2State({ players: [{ id: 'A', hand: '2S 4S' }, { id: 'B', hand: '4C 9C' }, { id: 'C', hand: '7C' }], trump: 'D', turn: 'C', table: [['9H', 'B']], deckSize: 52 });
+    expect(legalMoves(s0, 'C').playable).toEqual([]);
+    const once = act(s0, 'C', { type: 'take' });
+    expect(once.table).toEqual([]);
+    expect(once.phase).toBe('phase2');
+    // Та же позиция в 3-й раз: принудительный отбой ничего не меняет → партия кончается по картам.
+    const r = apply({ ...s0, positions: { [positionHash(once)]: 2 } }, 'C', { type: 'take' }, 0);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
     expect(r.events).toEqual([
-      { type: 'tookBottom', playerId: 'C', card: c('7H') },
+      { type: 'tookBottom', playerId: 'C', card: c('9H') },
       { type: 'stall', rule: 'forcedVidbiy' },
       { type: 'vidbiy', closerId: 'C' },
       { type: 'gameOver', result: { loserId: 'A', winnerId: null, outOrder: [], technical: false } },
     ]);
     expect(r.state.phase).toBe('over');
+    // Ходит A, у всех по 2 карты → при равенстве проигрывает первый по часовой от ходящего.
     expect(r.state.result).toEqual({ loserId: 'A', winnerId: null, outOrder: [], technical: false });
   });
 
@@ -255,25 +342,35 @@ describe('phase 2: stalled battle', () => {
     expect(positionHash({ ...s, turn: 'B' })).not.toBe(positionHash(s));
   });
 
-  it('a loop with beats is caught too', () => {
-    // Козырь ♣, A вне игры. B, C, D гоняют KS, QS, KD, 6D: заход → побил → взял → взял; цикл 24 хода.
-    let s = phase2State({ players: [{ id: 'A', hand: '', out: true }, { id: 'B', hand: 'QS' }, { id: 'C', hand: 'KS 6D' }, { id: 'D', hand: 'KD' }], trump: 'C', turn: 'B' });
-    const cycle: Step[] = [
-      lead('B', 'QS'), lead('C', 'KS'), take('D'), take('B'),
-      lead('C', '6D'), lead('D', 'KD'), take('B'), take('C'),
-      lead('D', 'QS'), lead('B', 'KS'), take('C'), take('D'),
-      lead('B', '6D'), lead('C', 'KD'), take('D'), take('B'),
-      lead('C', 'QS'), lead('D', 'KS'), take('B'), take('C'),
-      lead('D', '6D'), lead('B', 'KD'), take('C'), take('D'),
-    ];
+  it('a loop with beats is caught too: every move names its player explicitly', () => {
+    let s = trap();
     let stallAt = 0;
     for (let i = 0; i < 60 && !stallAt; i++) {
-      const [id, action] = cycle[i % cycle.length];
+      const [id, action] = trapCycle[i % trapCycle.length];
       const r = apply(s, id, action, 0);
       if (!r.ok) throw new Error(`${i} ${id} ${action.type}: ${r.error}`);
       if (r.events.some((e) => e.type === 'stall')) stallAt = i + 1;
       s = r.state;
     }
     expect(stallAt).toBe(49);
+  });
+
+  it('the old empty-hand loop cannot happen: an empty table settles it long before any stall', () => {
+    // Раньше это была бесконечная карусель: A заходит 3C, B (пустая рука) берёт, C заходит 2C,
+    // A берёт… Теперь стол пустеет сразу после взятия B, и A с пустой рукой выходит.
+    let s = phase2State({ players: [{ id: 'A', hand: '3C' }, { id: 'B', hand: '' }, { id: 'C', hand: '2C' }], trump: 'H', turn: 'A', deckSize: 52 });
+    const events: GameEvent[] = [];
+    for (let i = 0; i < 20 && s.phase !== 'over'; i++) {
+      const r = apply(s, s.turn, anyMove(s), 0);
+      if (!r.ok) throw new Error(r.error);
+      events.push(...r.events);
+      s = r.state;
+    }
+    expect(events.some((e) => e.type === 'stall')).toBe(false);
+    // A выходит на пустой стол сразу после взятия B; дальше C заходит 2C, B бьёт 3C —
+    // отбой на двоих, обе руки пусты, оба выходят вместе: ничья, проигравшего нет.
+    expect(events.filter((e) => e.type === 'out').map((e) => e.playerId)).toEqual(['A', 'B', 'C']);
+    expect(s.phase).toBe('over');
+    expect(s.result).toEqual({ loserId: null, winnerId: 'A', outOrder: ['A', 'B', 'C'], technical: false });
   });
 });

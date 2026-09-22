@@ -19,6 +19,12 @@ function makeHost(o: Partial<HostOptions> & { seats: SeatInfo[]; seed?: number }
 
 const playerOf = (s: GameState, id: string) => s.players.find((p) => p.id === id)!;
 
+const always = (value: number) => () => value;
+const seq = (...values: number[]) => {
+  let i = 0;
+  return () => values[i++ % values.length];
+};
+
 beforeEach(() => vi.useFakeTimers({ now: 0 }));
 afterEach(() => vi.useRealTimers());
 
@@ -43,7 +49,8 @@ describe('LocalHost, all-bot sessions', () => {
     const summary = host.getSummary();
     expect(summary.status).toBe('sessionOver');
     expect(Object.values(summary.losses).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(3);
-    expect(host.getLog().filter((e) => e.error && e.error !== 'nothing_to_call')).toEqual([]);
+    // Счётчик, а не скан журнала: журнал усекается до LOG_LIMIT записей, а сессия может произвести больше.
+    expect(host.getErrorCount()).toBe(0);
     host.dispose();
   });
 
@@ -142,6 +149,59 @@ describe('LocalHost, vakhta, play-as, autopilot, crash', () => {
     vi.advanceTimersByTime(BOT_REACTION_MAX_MS);
     expect(playerOf(host.getState()!, 'me').fouls).toBe(1);
     expect(host.getLog().some((e) => e.events.some((ev) => ev.type === 'vakhta' && ev.fouled.includes('me')))).toBe(true);
+  });
+
+  it('a seat taken over by the human before its scheduled Vakhta call never calls', () => {
+    // b0 оставляет себе TS с целью «+1» на 9C у b1 — нарушение, за него решит вызвать b1.
+    const state = phase1State({
+      players: [{ id: 'b0', stack: '7H' }, { id: 'b1', stack: '9C' }],
+      deck: 'QH JD 8C',
+      drawn: 'TS',
+      turn: 'b0',
+    });
+    const host = makeHost({ seats: [bot('b0'), bot('b1')], initialState: state, random: always(0.1) });
+    host.start();
+    expect(host.act('b0', { type: 'placeDrawn', to: 'b0' })).toEqual({ ok: true });
+    // В этот момент бот b1 уже запланировал вызов Вахты (~970 мс). Человек забирает место b1 раньше.
+    host.setHumanSeat('b1');
+    vi.advanceTimersByTime(BOT_REACTION_MAX_MS + 50);
+    expect(host.getLog().some((e) => e.playerId === 'b1' && e.action?.type === 'callVakhta')).toBe(false);
+  });
+
+  it('turning autopilot off before a scheduled Vakhta call restores the seat to the human', () => {
+    // b1 оставляет себе TS с целью «+1» на 9C у me — нарушение; под автопилотом бот решит вызвать за me.
+    const state = phase1State({
+      players: [{ id: 'b1', stack: '7H' }, { id: 'me', stack: '9C' }],
+      deck: 'QH JD 8C',
+      drawn: 'TS',
+      turn: 'b1',
+    });
+    const host = makeHost({ seats: [human('me'), bot('b1')], initialState: state, random: always(0.1) });
+    host.start();
+    host.setAutopilot(true);
+    expect(host.act('b1', { type: 'placeDrawn', to: 'b1' })).toEqual({ ok: true });
+    // me под автопилотом уже запланировал вызов Вахты (~970 мс). Автопилот выключают раньше.
+    host.setAutopilot(false);
+    vi.advanceTimersByTime(BOT_REACTION_MAX_MS + 50);
+    expect(host.getLog().some((e) => e.playerId === 'me' && e.action?.type === 'callVakhta')).toBe(false);
+  });
+
+  it('does not call once the decided watch window has already closed', () => {
+    // Долгов нет — как только окно закроется, штраф сразу перейдёт в фазу 2.
+    const state = {
+      ...penaltyState({
+        players: [{ id: 'b1', hand: '6C 7C' }, { id: 'b2', hand: 'JD QD' }],
+        trump: 'H',
+        lastCardDrawerId: 'b1',
+      }),
+      watches: [{ id: 1, playerId: 'b1', at: -2500, violated: true, called: false, othersActed: true }],
+    };
+    // Решение принимается сразу (0.4 < BOT_SPOT_CHANCE) с максимальной задержкой (BOT_REACTION_MAX_MS).
+    const host = makeHost({ seats: [bot('b1'), bot('b2')], initialState: state, random: seq(0.4, 1) });
+    host.start();
+    // Тик закрывает окно (grace 3000 мс от at=-2500, т.е. к 500 мс) задолго до срабатывания решения (2500 мс).
+    vi.advanceTimersByTime(BOT_REACTION_MAX_MS + TICK_SLACK_MS + 50);
+    expect(host.getLog().some((e) => e.playerId === 'b2' && e.action?.type === 'callVakhta')).toBe(false);
   });
 
   it('rejects illegal intents without changing the state', () => {

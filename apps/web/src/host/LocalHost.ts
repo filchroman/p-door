@@ -3,6 +3,7 @@ import {
   autoAction,
   canDeal,
   createGame,
+  isWatchOpen,
   newSession,
   nextDeadline,
   pendingPlayers,
@@ -78,11 +79,13 @@ export class LocalHost {
   private changeSeq = 0;
   private actionCount = 0;
   private log: LogEntry[] = [];
+  private unexpectedErrorCount = 0;
   private botSpeed: BotSpeed;
   private humanId: PlayerId | null;
   private autopilot = false;
   private botTimers = new Map<PlayerId, TimerHandle>();
-  private vakhtaTimers = new Set<TimerHandle>();
+  /** Ключ — таймер; значение — за какого игрока и по какому окну был запланирован вызов. */
+  private vakhtaTimers = new Map<TimerHandle, { playerId: PlayerId; watchId: number }>();
   private seenWatchId = 0;
   private tickTimer: TimerHandle | null = null;
   private tickAt: number | null = null;
@@ -169,6 +172,11 @@ export class LocalHost {
     return [...this.log];
   }
 
+  /** Число отклонённых движком действий (кроме безвредного `nothing_to_call`) за всю сессию — лог обрезается, счётчик нет. */
+  getErrorCount(): number {
+    return this.unexpectedErrorCount;
+  }
+
   getDeadlines(): Deadlines {
     return {
       turnEndsAt: this.turnEndsAt,
@@ -202,12 +210,16 @@ export class LocalHost {
 
   setHumanSeat(id: PlayerId | null): void {
     this.humanId = id;
+    // Место `id` теперь человек: снимаем уже запланированные вызовы Вахты ботом за него.
+    this.cancelVakhtaTimersFor(id);
     if (this.state && this.status === 'playing') this.reschedule();
     this.emit();
   }
 
   setAutopilot(on: boolean): void {
     this.autopilot = on;
+    // Автопилот выключен — место человека снова под его контролем, отменяем висящие вызовы бота за него.
+    if (!on) this.cancelVakhtaTimersFor(this.humanId);
     if (this.state && this.status === 'playing') this.reschedule();
   }
 
@@ -294,6 +306,7 @@ export class LocalHost {
   }
 
   private pushLog(entry: LogEntry): void {
+    if (entry.error && entry.error !== 'nothing_to_call') this.unexpectedErrorCount++;
     this.log.push(entry);
     if (this.log.length > LOG_LIMIT) this.log.splice(0, this.log.length - LOG_LIMIT);
   }
@@ -321,8 +334,18 @@ export class LocalHost {
     this.penaltyEndsAt = null;
     for (const handle of this.botTimers.values()) this.cancel(handle);
     this.botTimers.clear();
-    for (const handle of this.vakhtaTimers) this.cancel(handle);
+    for (const handle of this.vakhtaTimers.keys()) this.cancel(handle);
     this.vakhtaTimers.clear();
+  }
+
+  /** Отменяет ещё не сработавшие вызовы Вахты, запланированные ботом за это место. */
+  private cancelVakhtaTimersFor(id: PlayerId | null): void {
+    if (id === null) return;
+    for (const [handle, info] of this.vakhtaTimers) {
+      if (info.playerId !== id) continue;
+      this.cancel(handle);
+      this.vakhtaTimers.delete(handle);
+    }
   }
 
   private reschedule(): void {
@@ -447,13 +470,29 @@ export class LocalHost {
         if (p.out || !this.isBotControlled(p.id)) continue;
         const delay = botVakhtaDelay(state, p.id, watch.id, this.random);
         if (delay === null) continue;
+        const playerId = p.id;
+        const watchId = watch.id;
         const handle = this.later(delay / this.botSpeed, () => {
           this.vakhtaTimers.delete(handle);
-          this.applyAction(p.id, { type: 'callVakhta' });
+          this.fireVakhtaCall(playerId, watchId);
         });
-        this.vakhtaTimers.add(handle);
+        this.vakhtaTimers.set(handle, { playerId, watchId });
       }
       this.seenWatchId = Math.max(this.seenWatchId, watch.id);
     }
+  }
+
+  /**
+   * Срабатывание отложенного решения бота по конкретному окну Вахты. Место могло за это время
+   * перейти к человеку (`setHumanSeat`/`setAutopilot`), а само окно — закрыться (истёк грайс-период,
+   * его уже кто-то вызвал, или партия ушла в другую фазу/завершилась) — тогда ничего не делаем.
+   */
+  private fireVakhtaCall(playerId: PlayerId, watchId: number): void {
+    if (!this.state || this.status !== 'playing') return;
+    if (!this.isBotControlled(playerId)) return;
+    if (this.state.phase !== 'phase1' && this.state.phase !== 'penalty') return;
+    const watch = this.state.watches.find((w) => w.id === watchId);
+    if (!watch || !isWatchOpen(watch, this.clock.now())) return;
+    this.applyAction(playerId, { type: 'callVakhta' });
   }
 }

@@ -1,0 +1,24 @@
+/* Только transform, opacity и дискретная visibility (спека §2a). */
+.confetti { position: fixed; inset: 0; z-index: 75; width: 100%; height: 100%; pointer-events: none; }
+
+.fx-dim { position: absolute; inset: 0; z-index: 55; background: #050a14; opacity: 0; pointer-events: none; animation: fx-dim 1.2s var(--ease-out, ease-out) forwards; }
+@keyframes fx-dim { 15% { opacity: 0.45; } 75% { opacity: 0.45; } 100% { opacity: 0; } }
+
+.fx-block { position: absolute; inset: 0; z-index: 90; animation: fx-block 0.3s steps(1, end) forwards; }
+@keyframes fx-block { to { visibility: hidden; } }
+
+.fx-flash { position: absolute; right: 14px; bottom: 150px; z-index: 56; width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(255, 235, 59, 0.8) 35%, transparent 70%); opacity: 0; pointer-events: none; animation: fx-flash 0.5s ease-out; }
+@keyframes fx-flash { 0% { opacity: 0.9; transform: scale(0.6); } 100% { opacity: 0; transform: scale(1.8); } }
+
+.fx-stamp { position: absolute; left: 50%; top: 50%; z-index: 60; padding: 2px 6px; border: 3px solid #c62828; border-radius: 6px; font: 900 1rem var(--font-body); color: #c62828; background: rgba(255, 255, 255, 0.85); opacity: 0; pointer-events: none; transform: translate(-50%, -50%) rotate(-14deg) scale(2.2); animation: fx-stamp 1.2s var(--ease-out, ease-out) forwards; }
+@keyframes fx-stamp { 15% { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(1); } 80% { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-14deg) scale(1); } }
+
+.avatar-shake { animation: fx-shake 0.45s ease-in-out 0.15s; }
+@keyframes fx-shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+
+.fx-chip { position: absolute; right: -6px; top: -6px; z-index: 3; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; font: 700 0.6rem var(--font-body); line-height: 20px; color: #fff; background: #c62828; opacity: 0; pointer-events: none; animation: fx-chip 0.9s var(--ease-out, ease-out) 0.2s forwards; }
+@keyframes fx-chip { 0% { opacity: 1; transform: translate(-120px, 160px) scale(1.6); } 80% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(0, 0) scale(1); } }
+
+.fx-out { position: absolute; left: 50%; bottom: -4px; z-index: 4; padding: 1px 8px; border-radius: 4px; font: 700 0.7rem var(--font-body); white-space: nowrap; color: #3b2a00; background: linear-gradient(#fff3c4, var(--gold)); opacity: 0; pointer-events: none; transform: translate(-50%, 10px); animation: fx-out 1.2s var(--ease-out, ease-out) forwards; }
+@keyframes fx-out { 20% { opacity: 1; transform: translate(-50%, 0); } 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 0); } }
+.fx-out::before { content: ''; position: absolute; left: 50%; bottom: 100%; width: 80px; height: 80px; margin-left: -40px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 236, 150, 0.9), transparent 70%); opacity: 0.8; }

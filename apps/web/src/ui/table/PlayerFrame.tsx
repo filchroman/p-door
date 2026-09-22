@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { SeatInfo } from '../../client/types';
 import { ru } from '../../i18n/ru';
 import { Countdown } from '../Countdown';
+import '../effects/effects.css';
 import type { StatusKey } from './derive';
 
 export interface PlayerFrameProps {

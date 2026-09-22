@@ -108,7 +108,7 @@ describe('app store', () => {
   it('reads the log from the client only while the debug panel is open, not on every queued update', async () => {
     await useAppStore.getState().startMatch(setup);
     const client = useAppStore.getState().client!;
-    const logSpy = vi.spyOn(client.debug, 'log');
+    const logSpy = vi.spyOn(client.debug!, 'log');
     logSpy.mockClear();
     useAppStore.getState().send({ type: 'draw' });
     expect(logSpy).not.toHaveBeenCalled();
@@ -119,6 +119,26 @@ describe('app store', () => {
     logSpy.mockClear();
     useAppStore.getState().playAs('p0');
     expect(logSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('a client without the debug seam (a future network one) drives the table just the same', async () => {
+    const { client, emit } = fakeClient(makeUpdate(start(), 'p0'), { withDebug: false });
+    resetStore({ makeClient: () => client });
+    await useAppStore.getState().startMatch(setup);
+    expect(useAppStore.getState().screen).toBe('game');
+    expect(useAppStore.getState().allHands).toBeNull();
+    expect(useAppStore.getState().log).toEqual([]);
+    const store = useAppStore.getState();
+    store.setShowAllHands(true);
+    store.setBotSpeed(3);
+    store.setAutopilot(true);
+    store.toggleDebug();
+    store.playAs('p2');
+    emit(makeUpdate(start(), 'p0'));
+    expect(useAppStore.getState().screen).toBe('game');
+    expect(useAppStore.getState().allHands).toBeNull();
+    expect(useAppStore.getState().log).toEqual([]);
+    expect(useAppStore.getState().debug).toMatchObject({ botSpeed: 3, autopilot: true, open: true, showAllHands: true });
   });
 
   it('show all hands pulls hands from the client', async () => {

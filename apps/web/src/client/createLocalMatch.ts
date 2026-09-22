@@ -1,7 +1,7 @@
 import { LocalHost, type HostOptions } from '../host/LocalHost';
-import type { MatchSettings } from '../host/types';
 import { LocalGameClient } from './LocalGameClient';
 import { makeSeats } from './seats';
+import type { MatchSettings } from './types';
 
 export interface MatchSetup {
   nick: string;

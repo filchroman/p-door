@@ -1,6 +1,7 @@
 import type { ErrorCode, PlayerId } from '@vakhta/engine';
 import type { LocalHost } from '../host/LocalHost';
-import type { AppClient, ClientUpdate, DebugControls, Intent } from './types';
+import type { DebugControls } from './debug';
+import type { AppClient, ClientUpdate, Intent } from './types';
 
 export class LocalGameClient implements AppClient {
   readonly debug: DebugControls;

@@ -18,8 +18,11 @@ export function makeUpdate(state: GameState, me: PlayerId, extra: Partial<Client
   };
 }
 
-/** Клиент-заглушка: срезы приходят тогда и такие, какие велит тест (через очередь стора). */
-export function fakeClient(first: ClientUpdate): { client: AppClient; emit: (update: ClientUpdate) => void } {
+/**
+ * Клиент-заглушка: срезы приходят тогда и такие, какие велит тест (через очередь стора).
+ * `withDebug: false` — клиент без отладочного шва, каким будет сетевой.
+ */
+export function fakeClient(first: ClientUpdate, { withDebug = true } = {}): { client: AppClient; emit: (update: ClientUpdate) => void } {
   let listener: ((update: ClientUpdate) => void) | null = null;
   const client: AppClient = {
     subscribe(l) {
@@ -33,7 +36,7 @@ export function fakeClient(first: ClientUpdate): { client: AppClient; emit: (upd
     onError: () => () => {},
     nextGame() {},
     endSession() {},
-    debug: { playAs() {}, setBotSpeed() {}, setAutopilot() {}, allHands: () => ({}), log: () => [] },
+    debug: withDebug ? { playAs() {}, setBotSpeed() {}, setAutopilot() {}, allHands: () => ({}), log: () => [] } : undefined,
     snapshot: () => first,
     dispose() {},
   };

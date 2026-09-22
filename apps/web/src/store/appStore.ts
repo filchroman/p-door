@@ -2,7 +2,8 @@ import type { Card, DeckSize, PlayerId } from '@vakhta/engine';
 import { create } from 'zustand';
 import { preloadDeck } from '../cards/preload';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
-import type { AppClient, BotSpeed, ClientUpdate, Intent, LogEntry } from '../client/types';
+import type { BotSpeed, LogEntry } from '../client/debug';
+import type { AppClient, ClientUpdate, Intent } from '../client/types';
 import { sweepMs } from '../ui/anim/motion';
 import { prefersReducedMotion } from '../ui/anim/reducedMotion';
 import { VIBRATE_ERROR, vibrate } from '../ui/haptics';
@@ -113,10 +114,10 @@ export const useAppStore = create<AppState>()((set, get) => {
       celebrating: hold > 0,
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),
-      allHands: debug.showAllHands && client ? client.debug.allHands() : null,
+      allHands: debug.showAllHands ? (client?.debug?.allHands() ?? null) : null,
       // Панель отладки закрыта в подавляющее большинство времени — не читаем журнал на каждом
       // срезе очереди анимаций, только пока он виден (иначе лишняя работа на каждый ход бота).
-      log: debug.open && client ? client.debug.log() : log,
+      log: debug.open ? (client?.debug?.log() ?? log) : log,
     });
     if (hold > 0) {
       celebrateTimer = setTimeout(() => {
@@ -178,8 +179,8 @@ export const useAppStore = create<AppState>()((set, get) => {
       const client = get().makeClient(setup);
       attach(client);
       const { debug } = get();
-      client.debug.setBotSpeed(debug.botSpeed);
-      client.debug.setAutopilot(debug.autopilot);
+      client.debug?.setBotSpeed(debug.botSpeed);
+      client.debug?.setAutopilot(debug.autopilot);
       const update = client.snapshot();
       set({
         client,
@@ -190,8 +191,8 @@ export const useAppStore = create<AppState>()((set, get) => {
         celebrating: false,
         marks: emptyMarks(update?.session.gameNumber ?? 0),
         selection: null,
-        allHands: debug.showAllHands ? client.debug.allHands() : null,
-        log: client.debug.log(),
+        allHands: debug.showAllHands ? (client.debug?.allHands() ?? null) : null,
+        log: client.debug?.log() ?? [],
       });
     },
 
@@ -238,27 +239,27 @@ export const useAppStore = create<AppState>()((set, get) => {
       const open = !get().debug.open;
       const client = get().client;
       // Открыли панель — журнал мог отстать (не читался, пока она была закрыта): освежаем сразу.
-      set({ debug: { ...get().debug, open }, log: open && client ? client.debug.log() : get().log });
+      set({ debug: { ...get().debug, open }, log: open ? (client?.debug?.log() ?? get().log) : get().log });
     },
 
     setShowAllHands(on) {
       const client = get().client;
-      set({ debug: { ...get().debug, showAllHands: on }, allHands: on && client ? client.debug.allHands() : null });
+      set({ debug: { ...get().debug, showAllHands: on }, allHands: on ? (client?.debug?.allHands() ?? null) : null });
     },
 
     setBotSpeed(speed) {
       set({ debug: { ...get().debug, botSpeed: speed } });
-      get().client?.debug.setBotSpeed(speed);
+      get().client?.debug?.setBotSpeed(speed);
     },
 
     setAutopilot(on) {
       set({ debug: { ...get().debug, autopilot: on } });
-      get().client?.debug.setAutopilot(on);
+      get().client?.debug?.setAutopilot(on);
     },
 
     playAs(id) {
       set({ selection: null });
-      get().client?.debug.playAs(id);
+      get().client?.debug?.playAs(id);
     },
   };
 });

@@ -1,4 +1,4 @@
-import type { LogEntry } from '../../client/types';
+import type { LogEntry } from '../../client/debug';
 
 export function formatLogEntry(entry: LogEntry): string {
   const time = new Date(entry.at).toISOString().slice(11, 19);

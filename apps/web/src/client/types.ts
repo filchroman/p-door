@@ -1,9 +1,47 @@
-import type { Action, Card, ErrorCode, GameEvent, PlayerId, PlayerView } from '@vakhta/engine';
-import type { BotSpeed, Deadlines, LogEntry, SeatInfo, SessionSummary } from '../host/types';
+import type { Action, DeckSize, ErrorCode, GameEvent, PlayerId, PlayerView, StallRule } from '@vakhta/engine';
+import type { DebugControls } from './debug';
 
-export type { BotSpeed, Deadlines, LogEntry, SeatInfo, SessionSummary };
+/**
+ * Шов клиента: только то, что одинаково у локального хоста и будущего сетевого (Socket.io).
+ * Ничего отсюда не знает про то, как устроен хост, — зависимость идёт строго host → client.
+ */
 
 export type Intent = Exclude<Action, { type: 'tick' }>;
+
+export type TurnSeconds = 0 | 15 | 30 | 60;
+export const TURN_SECONDS: TurnSeconds[] = [0, 15, 30, 60];
+
+export interface MatchSettings {
+  deckSize: DeckSize;
+  turnSeconds: TurnSeconds;
+  stallRule: StallRule;
+}
+
+export interface SeatInfo {
+  id: PlayerId;
+  name: string;
+  avatar: string;
+  isBot: boolean;
+}
+
+export type SessionStatus = 'playing' | 'gameOver' | 'sessionOver' | 'crashed';
+
+export interface SessionSummary {
+  gameNumber: number;
+  losses: Record<PlayerId, number>;
+  vakhterId: PlayerId | null;
+  status: SessionStatus;
+  /** Хватит ли карт на следующую раздачу (прикупы растут с поражениями). */
+  canContinue: boolean;
+}
+
+export interface Deadlines {
+  turnEndsAt: number | null;
+  /** Полная длительность таймера хода — для CSS-полоски отсчёта. */
+  turnTotalMs: number | null;
+  penaltyEndsAt: number | null;
+  penaltyTotalMs: number | null;
+}
 
 export interface ClientUpdate {
   view: PlayerView;
@@ -23,16 +61,9 @@ export interface GameClient {
   endSession(): void;
 }
 
-export interface DebugControls {
-  playAs(id: PlayerId): void;
-  setBotSpeed(speed: BotSpeed): void;
-  setAutopilot(on: boolean): void;
-  allHands(): Record<PlayerId, Card[]>;
-  log(): LogEntry[];
-}
-
 export interface AppClient extends GameClient {
-  readonly debug: DebugControls;
+  /** Есть только у локального хоста: сетевой клиент отладочного шва не даёт. */
+  readonly debug?: DebugControls;
   snapshot(): ClientUpdate | null;
   dispose(): void;
 }

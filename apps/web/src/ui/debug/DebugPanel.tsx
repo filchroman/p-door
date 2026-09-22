@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
-import { BOT_SPEEDS } from '../../host/types';
+import { BOT_SPEEDS } from '../../client/debug';
 import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
 import { Segmented } from '../Segmented';

@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BOT_REACTION_MAX_MS } from '../bots/botAction';
 import { runUntil, testHostOptions } from '../test/hostOptions';
 import { penaltyState, phase1State } from '../test/states';
+import type { MatchSettings, SeatInfo } from '../client/types';
 import { LocalHost, type HostOptions } from './LocalHost';
-import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS, type MatchSettings, type SeatInfo } from './types';
+import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS } from './types';
 
 const human = (id: string): SeatInfo => ({ id, name: id, avatar: 'x', isBot: false });
 const bot = (id: string): SeatInfo => ({ id, name: id, avatar: 'x', isBot: true });

@@ -1,6 +1,6 @@
 import type { DeckSize, StallRule } from '@vakhta/engine';
 import { useState } from 'react';
-import { TURN_SECONDS, type TurnSeconds } from '../host/types';
+import { TURN_SECONDS, type TurnSeconds } from '../client/types';
 import { ru } from '../i18n/ru';
 import { useAppStore } from '../store/appStore';
 import { Segmented } from './Segmented';

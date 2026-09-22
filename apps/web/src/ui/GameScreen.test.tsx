@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import type { GameResult, GameState } from '@vakhta/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MatchSetup } from '../client/createLocalMatch';
-import type { SessionStatus } from '../host/types';
+import type { SessionStatus } from '../client/types';
 import { ru } from '../i18n/ru';
 import { useAppStore } from '../store/appStore';
 import { FX_MS } from '../store/derive';

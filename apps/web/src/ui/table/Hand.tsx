@@ -60,7 +60,7 @@ const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipI
   const classes = ['hand-card', legal ? 'is-legal' : '', dim ? 'is-dim' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} data-legal={legal} style={{ '--angle': `${angle}deg` } as CSSProperties} {...drag.handlers}>
-      <FlyFrom from={from}>
+      <FlyFrom from={from} ghost={<PlayingCard card={card} />}>
         <AnimatedCard id={code} carried={carried} enter={!flipIn && !from}>
           <FlipIn flip={flipIn}>
             <PlayingCard card={card} />

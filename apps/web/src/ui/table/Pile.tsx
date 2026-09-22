@@ -8,7 +8,7 @@ import { FlyFrom } from '../anim/FlyFrom';
 import { DraggableCard } from './DraggableCard';
 import { layerOffset } from './layers';
 import { Prykup } from './Prykup';
-import { zoneProps } from './zones';
+import { STACK_CAP, zoneProps } from './zones';
 
 export interface PileProps {
   player: PublicPlayer;
@@ -27,7 +27,10 @@ export function Pile({ player, targetable, onTarget, topDraggable, topSelected, 
   const topKey = top ? cardKey(top) : '';
   // Карта не появляется на стопке из ниоткуда: она прилетает оттуда, где лежала (спека §2c.1).
   const flight = useAppStore((s) => (topKey ? (s.flights.cards[topKey] ?? null) : null));
-  const under = Math.max(0, player.stackCount - (top ? 1 : 0));
+  // Стопка показывает высоту, а не каждую карту: сверху видна верхняя, под ней — не больше
+  // STACK_CAP слоёв (спека §2c.2), точная высота стоит рядом цифрой.
+  const shown = Math.min(player.stackCount, STACK_CAP);
+  const under = Math.max(0, shown - (top ? 1 : 0));
   const classes = ['pile', targetable ? 'is-targetable' : ''].filter(Boolean).join(' ');
   return (
     <div
@@ -39,7 +42,7 @@ export function Pile({ player, targetable, onTarget, topDraggable, topSelected, 
         if (targetable) onTarget();
       }}
     >
-      <div className="pile__stack" aria-label={ru.table.stack(player.stackCount)} {...zoneProps(`stack-${player.id}`, player.stackCount)}>
+      <div className="pile__stack" aria-label={ru.table.stack(player.stackCount)} {...zoneProps(`stack-${player.id}`, player.stackCount, shown)}>
         {Array.from({ length: under }, (_, i) => (
           <div key={i} className="stack-layer" style={layerOffset(i)}>
             <PlayingCard card={null} blank />
@@ -47,7 +50,7 @@ export function Pile({ player, targetable, onTarget, topDraggable, topSelected, 
         ))}
         {top && (
           <div className="stack-layer" style={layerOffset(under)}>
-            <FlyFrom key={topKey} from={flight}>
+            <FlyFrom key={topKey} from={flight} ghost={<PlayingCard card={top} />}>
               {topDraggable ? (
                 <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} enter={!flight} />
               ) : (

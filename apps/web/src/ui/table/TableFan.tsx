@@ -29,6 +29,7 @@ export function TableFan({ table }: { table: TableCard[] }) {
           <FlyFrom
             key={cardKey(t.card)}
             from={flights[cardKey(t.card)] ?? null}
+            ghost={<PlayingCard card={t.card} />}
             className={fanClass(i, table.length)}
             style={{ '--i': i } as CSSProperties}
           >

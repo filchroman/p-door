@@ -3,10 +3,34 @@
 .flip-in__back { position: absolute; inset: 0; transform: rotateY(180deg); }
 .flip-in__back .card { width: 100%; }
 .table-fan, .hand, .trump-badge, .drawn-slot { perspective: 700px; }
-/* Перелёт из зоны без общего layoutId (колода → вытянутая, прикуп → рука): только transform. */
-.fly-from.is-flying { animation: fly-from var(--fly-ms, 260ms) var(--ease-out) both; }
-@keyframes fly-from { from { transform: translate3d(var(--fly-x, 0px), var(--fly-y, 0px), 0); } }
+
+/*
+ * Верхний слой перелётов (спека §2c.2): портал в конец body, поверх стола и рамок (.vakhta-btn — 50,
+ * вспышки — 55/56), но под штампом «ВАХТА!», модалками (60), конфетти (75) и тостами (80).
+ * Он вне .app-column, поэтому его не обрезает overflow-x: clip колонки и не искажает ни perspective
+ * стола, ни поворот карты в веере руки.
+ */
+.flight-layer { position: fixed; inset: 0; z-index: 58; pointer-events: none; }
+.flight-card {
+  position: absolute;
+  /* will-change живёт ровно столько, сколько сам элемент — он существует только на время полёта (§2a). */
+  will-change: transform;
+  animation: card-fly var(--fly-ms, 440ms) var(--ease-fly) both;
+}
+/*
+ * Кривая перелёта. Прежняя var(--ease-out) = cubic-bezier(0.22, 1, 0.36, 1) уводила карту на 55%
+ * пути за первые 15% времени и на 96% — за половину: движение кончалось раньше, чем глаз успевал
+ * за него зацепиться, и ход читался как телепортация. Эта — с мягким началом и почти линейной
+ * серединой: 11% / 64% / 96% пути на 15% / 50% / 85% времени.
+ */
+.flight-card { --ease-fly: cubic-bezier(0.35, 0.15, 0.45, 0.92); }
+@keyframes card-fly {
+  from { transform: translate3d(var(--fly-x, 0px), var(--fly-y, 0px), 0) scale(var(--fly-s, 1)); }
+  to { transform: translate3d(0, 0, 0) scale(1); }
+}
+/* Приёмник прячется ровно на время полёта: карты не видно в двух местах, но из зоны она не исчезает. */
+.fly-from.is-away { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
-  .fly-from.is-flying { animation-name: fly-from-fade; }
-  @keyframes fly-from-fade { from { opacity: 0; } }
+  .flight-card { animation-name: card-fly-fade; }
+  @keyframes card-fly-fade { from { opacity: 0; } }
 }

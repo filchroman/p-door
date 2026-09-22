@@ -6,6 +6,17 @@ export const FLY_MS = 440;
 export const FLIP_MS = 340;
 export const EXIT_MS = 440;
 export const FADE_MS = 150;
+/**
+ * Нижняя граница перелёта карты (спека §2c.1: 380–520 мс). Догоняющая очередь ускоряет анимации
+ * (§2b), но перелёт она укорачивать не имеет права: 110 мс — это и была та «телепортация», из-за
+ * которой заказчик не видел ни одного хода. Очередь догоняет паузами, а не невидимыми перелётами.
+ */
+export const FLY_MIN_MS = 380;
+
+/** Сколько лететь карте при текущей скорости очереди: быстрее — да, но не короче FLY_MIN_MS. */
+export function flyMs(speed: number): number {
+  return Math.max(FLY_MIN_MS, Math.round(FLY_MS / Math.max(1, speed)));
+}
 
 export interface MotionTransition {
   duration: number;

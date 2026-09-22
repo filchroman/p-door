@@ -7,7 +7,7 @@ import { FlipIn } from '../anim/FlipIn';
 import { FlyFrom } from '../anim/FlyFrom';
 import { DraggableCard } from './DraggableCard';
 import { layerOffset } from './layers';
-import { zoneProps } from './zones';
+import { DECK_CAP, zoneProps } from './zones';
 
 /** Вытянутая карта летит от колоды к своему месту справа от неё — видимой траекторией (спека §2c). */
 const DECK_ZONE = 'deck';
@@ -38,8 +38,10 @@ export function DeckArea({ count, drawn, canDraw, drawnDraggable, drawnSelected,
         }}
         aria-label={ru.table.deckLabel(count)}
       >
-        <span className="deck__pile" {...zoneProps('deck', count)}>
-          {Array.from({ length: count }, (_, i) => (
+        {/* Колода — это высота и цифра: рубашек рисуется не больше DECK_CAP (спека §2c.2),
+            дальше слои всё равно не видно, а тридцать `<img>` браузер держит впустую. */}
+        <span className="deck__pile" {...zoneProps('deck', count, Math.min(count, DECK_CAP))}>
+          {Array.from({ length: Math.min(count, DECK_CAP) }, (_, i) => (
             <span key={i} className="stack-layer" style={layerOffset(i)}>
               <PlayingCard card={null} />
             </span>
@@ -49,8 +51,18 @@ export function DeckArea({ count, drawn, canDraw, drawnDraggable, drawnSelected,
       </button>
       {/* Место под вытянутую занято всегда: её появление ничего не двигает (спека §2c). */}
       <div className="drawn-slot" {...zoneProps('drawn', drawn ? 1 : 0)}>
+        {/* Вытянутая переворачивается прямо в полёте (§2b): рубашка отрывается от колоды и
+            приземляется лицом — поэтому переворот живёт и в летящей копии, и в приёмнике. */}
         {drawn && (
-          <FlyFrom key={cardKey(drawn)} from={DECK_ZONE}>
+          <FlyFrom
+            key={cardKey(drawn)}
+            from={DECK_ZONE}
+            ghost={
+              <FlipIn flip>
+                <PlayingCard card={drawn} />
+              </FlipIn>
+            }
+          >
             <FlipIn flip>
               {drawnDraggable ? (
                 <DraggableCard card={drawn} selected={drawnSelected} onTap={onDrawnTap} onDrop={onDrawnDrop} accept={accept} enter={false} />

@@ -153,6 +153,15 @@ describe('app store', () => {
     expect(logSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('publishes the drawn slice for the browser check: zones and total straight from the view', async () => {
+    await useAppStore.getState().startMatch(setup);
+    const view = useAppStore.getState().update!.view;
+    expect(window.__vakhta).toMatchObject({ gameNumber: 1, status: 'playing', phase: view.phase, total: view.deckSize - view.discardCount });
+    expect(window.__vakhta!.zones['hand-p0']).toBe(view.players.find((p) => p.id === 'p0')!.handCount);
+    useAppStore.getState().goHome();
+    expect(window.__vakhta).toBeUndefined();
+  });
+
   it('a client without the debug seam (a future network one) drives the table just the same', async () => {
     const { client, emit } = fakeClient(makeUpdate(start(), 'p0'), { withDebug: false });
     resetStore({ makeClient: () => client });

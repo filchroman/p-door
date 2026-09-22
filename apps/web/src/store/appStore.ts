@@ -20,6 +20,7 @@ import {
   type ToastSpec,
   type ToastTone,
 } from './derive';
+import { exposeView } from './expose';
 import { UpdatePump } from './updatePump';
 
 export type Screen = 'home' | 'loading' | 'game';
@@ -121,6 +122,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       // срезе очереди анимаций, только пока он виден (иначе лишняя работа на каждый ход бота).
       log: debug.open ? (client?.debug?.log() ?? log) : log,
     });
+    exposeView(update);
     if (hold > 0) {
       celebrateTimer = setTimeout(() => {
         celebrateTimer = null;
@@ -196,6 +198,7 @@ export const useAppStore = create<AppState>()((set, get) => {
         allHands: debug.showAllHands ? (client.debug?.allHands() ?? null) : null,
         log: client.debug?.log() ?? [],
       });
+      exposeView(update);
     },
 
     send(intent) {
@@ -228,6 +231,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       detach?.();
       detach = null;
       stopSweep();
+      exposeView(null);
       set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], sweep: null, celebrating: false });
     },
 

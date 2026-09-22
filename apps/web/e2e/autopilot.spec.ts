@@ -7,22 +7,38 @@ declare global {
   }
 }
 
-/** Инвариант «в покое» в браузере: каждая зона рисует ровно data-count карт, сумма = data-total. */
+/**
+ * Инвариант «в покое» в браузере: сверяемся со срезом (window.__vakhta), а не с тем, что разметка
+ * объявила о себе сама — иначе одна и та же ошибка могла бы сойтись сама с собой. Заодно проверяем
+ * и data-count: он обязан совпадать с тем же срезом.
+ */
 async function zonesAtRest(page: Page): Promise<string[]> {
   return page.evaluate(() => {
+    const view = window.__vakhta;
     const table = document.querySelector<HTMLElement>('.table-screen');
+    if (!view) return ['no view on window'];
     if (!table) return ['no table'];
     const problems: string[] = [];
+    const seen = new Set<string>();
     let total = 0;
     for (const zone of table.parentElement!.querySelectorAll<HTMLElement>('[data-zone]')) {
+      const name = zone.dataset.zone!;
       const rendered = zone.querySelectorAll('.card').length - zone.querySelectorAll('.flip-in__back .card').length;
+      const want = view.zones[name] ?? 0;
       total += rendered;
-      if (rendered !== Number(zone.dataset.count)) problems.push(`${zone.dataset.zone}: ${rendered}/${zone.dataset.count}`);
+      if (seen.has(name)) problems.push(`${name}: rendered twice`);
+      seen.add(name);
+      if (rendered !== want) problems.push(`${name}: rendered ${rendered}, view says ${want}`);
+      if (Number(zone.dataset.count) !== want) problems.push(`${name}: declared ${zone.dataset.count}, view says ${want}`);
     }
-    if (total !== Number(table.dataset.total)) problems.push(`total: ${total}/${table.dataset.total}`);
+    for (const [name, want] of Object.entries(view.zones)) if (want > 0 && !seen.has(name)) problems.push(`${name}: zone missing, view says ${want}`);
+    if (total !== view.total) problems.push(`total: rendered ${total}, view says ${view.total}`);
+    if (total !== Number(table.dataset.total)) problems.push(`total: rendered ${total}, declared ${table.dataset.total}`);
     return problems;
   });
 }
+
+const gameNumber = (page: Page) => page.evaluate(() => window.__vakhta?.gameNumber ?? 0);
 
 test('autopilot at max bot speed reaches the round results smoothly and with exact card counts', async ({ page }) => {
   await page.addInitScript(() => {
@@ -60,7 +76,16 @@ test('autopilot at max bot speed reaches the round results smoothly and with exa
   }
 
   await expect(page.getByRole('heading', { name: ru.results.title })).toBeVisible({ timeout: 240_000 });
-  await expect(page.getByRole('button', { name: ru.results.again })).toBeVisible();
   const longest = await page.evaluate(() => Math.max(0, ...window.__longTasks));
   expect(longest).toBeLessThanOrEqual(200);
+
+  // Вторая партия: переход между партиями — то место, где на столе легко остаётся лишнее.
+  await page.getByRole('button', { name: ru.results.again }).click();
+  await expect(page.locator('.table-screen')).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => gameNumber(page), { timeout: 30_000, intervals: [50] }).toBe(2);
+  await expect.poll(() => zonesAtRest(page), { timeout: 10_000, intervals: [50] }).toEqual([]);
+  await page.waitForTimeout(8_000);
+  if (await page.locator('.table-screen').count()) {
+    await expect.poll(() => zonesAtRest(page), { timeout: 10_000, intervals: [50] }).toEqual([]);
+  }
 });

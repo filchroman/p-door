@@ -39,8 +39,8 @@ describe('createGame', () => {
 
   it('refuses when the deck is too small or player count is wrong', () => {
     expect(canDeal(36, [2, 2, 2, 2, 2, 2])).toBe(true);
-    expect(canDeal(36, [10, 10, 2])).toBe(false);
-    expect(() => createGame(setup({ prykupSizes: { A: 10, B: 10, C: 2 } }))).toThrow('not_enough_cards');
+    expect(canDeal(36, [15, 15, 2])).toBe(false);
+    expect(() => createGame(setup({ prykupSizes: { A: 15, B: 15, C: 2 } }))).toThrow('not_enough_cards');
     expect(() => createGame(setup({ playerIds: ['A'], prykupSizes: { A: 2 }, dealerId: 'A' }))).toThrow('bad_player_count');
   });
 });

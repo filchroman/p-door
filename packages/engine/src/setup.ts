@@ -14,9 +14,8 @@ export interface GameSetup {
 /** После прикупов и открытых карт в колоде должно остаться не меньше карт, чем игроков. */
 export function canDeal(deckSize: DeckSize, prykupSizes: number[]): boolean {
   const n = prykupSizes.length;
-  const sum = prykupSizes.reduce((a, b) => a + b, 0);
-  const used = sum + n;
-  return deckSize - used >= sum;
+  const used = prykupSizes.reduce((a, b) => a + b, 0) + n;
+  return deckSize - used >= n;
 }
 
 export function createGame(setup: GameSetup): GameState {

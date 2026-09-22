@@ -1,0 +1,205 @@
+import { VAKHTA_GRACE_MS, makeDeck, mulberry32, shuffle, type DeckSize, type GameState } from '@vakhta/engine';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BOT_REACTION_MAX_MS } from '../bots/botAction';
+import { runUntil, testHostOptions } from '../test/hostOptions';
+import { penaltyState, phase1State } from '../test/states';
+import { LocalHost, type HostOptions } from './LocalHost';
+import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS, type MatchSettings, type SeatInfo } from './types';
+
+const human = (id: string): SeatInfo => ({ id, name: id, avatar: 'x', isBot: false });
+const bot = (id: string): SeatInfo => ({ id, name: id, avatar: 'x', isBot: true });
+const bots = (n: number) => Array.from({ length: n }, (_, i) => bot(`b${i}`));
+const settings = (deckSize: DeckSize = 36, turnSeconds: MatchSettings['turnSeconds'] = 0): MatchSettings => ({
+  deckSize, turnSeconds, stallRule: 'forcedVidbiy',
+});
+
+function makeHost(o: Partial<HostOptions> & { seats: SeatInfo[]; seed?: number }): LocalHost {
+  return new LocalHost({ settings: settings(), ...testHostOptions(o.seed ?? 1), ...o });
+}
+
+const playerOf = (s: GameState, id: string) => s.players.find((p) => p.id === id)!;
+
+beforeEach(() => vi.useFakeTimers({ now: 0 }));
+afterEach(() => vi.useRealTimers());
+
+describe('LocalHost, all-bot sessions', () => {
+  it.each([
+    [1, 3, 36],
+    [2, 4, 36],
+    [3, 6, 52],
+    [4, 2, 36],
+    [5, 5, 36],
+  ] as const)('seed %i: %i bots, deck %i — a 3-game session always finishes', (seed, count, deckSize) => {
+    const host = makeHost({ seats: bots(count), settings: settings(deckSize), seed });
+    host.start();
+    for (let game = 1; game <= 3; game++) {
+      runUntil(() => host.getStatus() !== 'playing');
+      expect(host.getStatus()).toBe('gameOver');
+      expect(host.getState()!.phase).toBe('over');
+      expect(host.getSummary().gameNumber).toBe(game);
+      if (game < 3) expect(host.nextGame()).toBe(true);
+    }
+    host.endSession();
+    const summary = host.getSummary();
+    expect(summary.status).toBe('sessionOver');
+    expect(Object.values(summary.losses).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(3);
+    expect(host.getLog().filter((e) => e.error && e.error !== 'nothing_to_call')).toEqual([]);
+    host.dispose();
+  });
+
+  it('bots play only after their delay', () => {
+    const host = makeHost({ seats: bots(3) });
+    host.start();
+    const before = host.getChangeSeq();
+    vi.advanceTimersByTime(500);
+    expect(host.getChangeSeq()).toBe(before);
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS);
+    expect(host.getChangeSeq()).toBeGreaterThan(before);
+  });
+
+  it('bot speed 3× divides the delay', () => {
+    const host = makeHost({ seats: bots(3), botSpeed: 3 });
+    host.start();
+    const before = host.getChangeSeq();
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS / 3 + 1);
+    expect(host.getChangeSeq()).toBeGreaterThan(before);
+  });
+});
+
+describe('LocalHost, timers', () => {
+  it('turn timer auto-plays the human turn in phase 1', () => {
+    const host = makeHost({ seats: [human('me'), bot('b1'), bot('b2')], settings: settings(36, 15), seed: 5 });
+    host.start();
+    runUntil(() => host.getState()!.phase === 'phase1' && host.getState()!.turn === 'me');
+    const endsAt = host.getDeadlines().turnEndsAt!;
+    expect(host.getDeadlines().turnTotalMs).toBe(15_000);
+    expect(endsAt).toBeGreaterThan(Date.now());
+    vi.advanceTimersByTime(endsAt - Date.now() - 1);
+    expect(host.getState()!.turn).toBe('me');
+    vi.advanceTimersByTime(1);
+    const s = host.getState()!;
+    expect(s.phase !== 'phase1' || s.turn !== 'me').toBe(true);
+    expect(host.getLog().some((e) => e.playerId === 'me' && e.action?.type === 'draw')).toBe(true);
+  });
+
+  it('turn timer is off when turnSeconds is 0', () => {
+    const state = phase1State({ players: [{ id: 'me', stack: '7H' }, { id: 'b1', stack: 'QC' }], deck: 'KD 8C 9S' });
+    const host = makeHost({ seats: [human('me'), bot('b1')], initialState: state });
+    host.start();
+    expect(host.getDeadlines()).toMatchObject({ turnEndsAt: null, turnTotalMs: null });
+    vi.advanceTimersByTime(120_000);
+    expect(host.getState()!.turn).toBe('me');
+  });
+
+  it('penalty timer gives cards for the human after 20 s', () => {
+    const state = penaltyState({
+      players: [{ id: 'me', hand: '6C 7C 8C' }, { id: 'b1', hand: '9D TD', fouls: 2 }, { id: 'b2', hand: 'JD QD' }],
+      trump: 'D',
+      debts: [{ from: 'me', to: 'b1', count: 2 }],
+      lastCardDrawerId: 'b1',
+    });
+    const host = makeHost({ seats: [human('me'), bot('b1'), bot('b2')], initialState: state });
+    host.start();
+    expect(host.getDeadlines()).toMatchObject({ penaltyEndsAt: PENALTY_MS, penaltyTotalMs: PENALTY_MS });
+    vi.advanceTimersByTime(PENALTY_MS - 1);
+    expect(host.getState()!.phase).toBe('penalty');
+    vi.advanceTimersByTime(1);
+    const s = host.getState()!;
+    expect(s.phase).toBe('phase2');
+    expect(playerOf(s, 'me').hand).toHaveLength(1);
+    expect(playerOf(s, 'b1').hand).toHaveLength(4);
+    expect(host.getDeadlines().penaltyEndsAt).toBeNull();
+  });
+
+  it('sends tick at nextDeadline, which starts phase 2', () => {
+    const state = penaltyState({
+      players: [{ id: 'b1', hand: '6C 7C' }, { id: 'b2', hand: 'JD QD' }],
+      trump: 'H',
+      lastCardDrawerId: 'b1',
+      watches: [{ id: 1, playerId: 'b1', at: 0, violated: false, called: false, othersActed: true }],
+    });
+    const host = makeHost({ seats: [bot('b1'), bot('b2')], initialState: state, random: () => 0.99 });
+    host.start();
+    vi.advanceTimersByTime(VAKHTA_GRACE_MS - 1);
+    expect(host.getState()!.phase).toBe('penalty');
+    vi.advanceTimersByTime(TICK_SLACK_MS + 1);
+    expect(host.getState()!.phase).toBe('phase2');
+    expect(host.getLog().some((e) => e.action?.type === 'tick')).toBe(true);
+  });
+});
+
+describe('LocalHost, vakhta, play-as, autopilot, crash', () => {
+  it('a bot calls Vakhta on the human violation and the human gets a foul', () => {
+    // У me вытянута TS с целью «+1» на 9C у b1; me оставляет её себе.
+    const state = phase1State({
+      players: [{ id: 'me', stack: '7H' }, { id: 'b1', stack: '9C' }, { id: 'b2', stack: 'KD' }],
+      deck: 'QH JD 8C 6S',
+      drawn: 'TS',
+    });
+    const host = makeHost({ seats: [human('me'), bot('b1'), bot('b2')], initialState: state, random: () => 0.1 });
+    host.start();
+    expect(host.act('me', { type: 'placeDrawn', to: 'me' })).toEqual({ ok: true });
+    vi.advanceTimersByTime(BOT_REACTION_MAX_MS);
+    expect(playerOf(host.getState()!, 'me').fouls).toBe(1);
+    expect(host.getLog().some((e) => e.events.some((ev) => ev.type === 'vakhta' && ev.fouled.includes('me')))).toBe(true);
+  });
+
+  it('rejects illegal intents without changing the state', () => {
+    const state = phase1State({ players: [{ id: 'me', stack: '7H' }, { id: 'b1', stack: 'QC' }], deck: 'KD 8C 9S' });
+    const host = makeHost({ seats: [human('me'), bot('b1')], initialState: state });
+    host.start();
+    const seq = host.getChangeSeq();
+    expect(host.act('b1', { type: 'draw' })).toEqual({ ok: false, error: 'not_your_turn' });
+    expect(host.act('me', { type: 'take' })).toEqual({ ok: false, error: 'wrong_phase' });
+    expect(host.getChangeSeq()).toBe(seq);
+  });
+
+  it('setHumanSeat hands the seat to the human and the old seat to the bots', () => {
+    const state = phase1State({ players: [{ id: 'me', stack: '7H' }, { id: 'b1', stack: 'QC' }, { id: 'b2', stack: 'KD' }], deck: 'AS 8C 9S JD' });
+    const host = makeHost({ seats: [human('me'), bot('b1'), bot('b2')], initialState: state });
+    const seen: number[] = [];
+    host.subscribe(() => seen.push(host.getChangeSeq()));
+    host.start();
+    host.setHumanSeat('b1');
+    expect(seen.length).toBe(2);
+    expect(host.isBotControlled('me')).toBe(true);
+    expect(host.isBotControlled('b1')).toBe(false);
+    expect(host.getSeats().map((s) => s.isBot)).toEqual([true, false, true]);
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS);
+    expect(host.getLog().some((e) => e.playerId === 'me' && e.action?.type === 'draw')).toBe(true);
+  });
+
+  it('autopilot lets a bot play for the human', () => {
+    const state = phase1State({ players: [{ id: 'me', stack: '7H' }, { id: 'b1', stack: 'QC' }], deck: 'AS 8C 9S JD' });
+    const host = makeHost({ seats: [human('me'), bot('b1')], initialState: state });
+    host.start();
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS);
+    expect(host.getLog().some((e) => e.playerId === 'me')).toBe(false);
+    host.setAutopilot(true);
+    vi.advanceTimersByTime(BOT_DELAY_MAX_MS);
+    expect(host.getLog().some((e) => e.playerId === 'me' && e.action?.type === 'draw')).toBe(true);
+  });
+
+  it('engine exceptions put the host into the crashed state with the stack in the log', () => {
+    let calls = 0;
+    const host = makeHost({
+      seats: bots(3),
+      shuffleDeck: (size) => (calls++ === 0 ? shuffle(makeDeck(size), mulberry32(9)) : []),
+    });
+    host.start();
+    runUntil(() => host.getStatus() !== 'playing');
+    expect(host.nextGame()).toBe(false);
+    expect(host.getStatus()).toBe('crashed');
+    expect(host.getLog().at(-1)!.error).toContain('bad_deck');
+    expect(host.getState()).not.toBeNull();
+  });
+
+  it('viewFor never shows other hands', () => {
+    const host = makeHost({ seats: [human('me'), bot('b1'), bot('b2')] });
+    host.start();
+    const view = host.viewFor('me')!;
+    expect(view.me).toBe('me');
+    expect(Object.keys(host.getHands())).toEqual(['me', 'b1', 'b2']);
+    expect(JSON.stringify(view)).not.toContain('prykup":[');
+  });
+});

@@ -9,14 +9,17 @@ export interface AnimatedCardProps {
   id: string;
   className?: string;
   style?: CSSProperties;
-  /** Улетать ли при исчезновении (отбой). */
-  exit?: boolean;
   /** Карта не летает сама — её несёт контейнер (большой веер руки). */
   still?: boolean;
   children: ReactNode;
 }
 
-export function AnimatedCard({ id, className, style, exit = false, still = false, children }: AnimatedCardProps) {
+/**
+ * Карта живёт ровно столько, сколько она есть в срезе: ушла из среза — ушла из DOM тем же кадром.
+ * Доигрывающих уход карт поверх зоны здесь нет: прерванный уход оставлял их в DOM навсегда
+ * (призраки на столе), поэтому отбой рисуется отдельным слоем — см. TableFan.
+ */
+export function AnimatedCard({ id, className, style, still = false, children }: AnimatedCardProps) {
   const enabled = useAppStore((s) => s.motionEnabled);
   const speed = useAppStore((s) => s.animSpeed);
   const reduced = useReducedMotion() ?? false;
@@ -29,7 +32,7 @@ export function AnimatedCard({ id, className, style, exit = false, still = false
       </div>
     );
   }
-  const m = cardMotion({ reduced, speed, exit });
+  const m = cardMotion({ reduced, speed });
   const on = () => setWillChange(ref.current, true);
   const off = () => setWillChange(ref.current, false);
   return (
@@ -41,7 +44,6 @@ export function AnimatedCard({ id, className, style, exit = false, still = false
       style={style as MotionStyle}
       initial={m.initial as TargetAndTransition}
       animate={m.animate as TargetAndTransition}
-      exit={m.exit as TargetAndTransition | undefined}
       transition={m.transition}
       onAnimationStart={on}
       onAnimationComplete={off}

@@ -4,7 +4,7 @@ import type { ClientUpdate } from '../client/types';
 import { ru } from '../i18n/ru';
 import { c, phase1State, phase2State } from '../test/states';
 import { makeUpdate, seatsFor } from '../test/updates';
-import { FX_MS, celebrationHoldMs, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, nextTableSweep } from './derive';
+import { FX_MS, celebrationHoldMs, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, sweptCards } from './derive';
 
 const p2 = phase2State({ players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }], trump: 'D', turn: 'A' });
 
@@ -63,16 +63,23 @@ describe('store derive', () => {
     expect(isFresh(null, 0)).toBe(false);
   });
 
-  it('tells a table sweep (whole table to the discard) from a taken bottom card (table to hand)', () => {
-    const sweep = makeUpdate(p2, 'A', { events: [{ type: 'vidbiy', closerId: 'C' }] });
-    const took = makeUpdate(p2, 'A', { events: [{ type: 'tookBottom', playerId: 'B', card: c('6C') }] });
-    const played = makeUpdate(p2, 'A', { events: [{ type: 'played', playerId: 'A', card: c('6C') }] });
-    expect(nextTableSweep(false, sweep)).toBe(true);
-    expect(nextTableSweep(true, took)).toBe(false);
-    // Между уходами со стола флаг держится: иначе он сменится посреди доигрывающего exit.
-    expect(nextTableSweep(true, played)).toBe(true);
-    expect(nextTableSweep(false, played)).toBe(false);
-    expect(nextTableSweep(true, makeUpdate(p2, 'A'))).toBe(true);
+  it('collects the cards a vidbiy sent to the discard: the table of the last slice plus what closed it', () => {
+    const onTable = phase2State({
+      players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }],
+      table: [['6D', 'B'], ['7D', 'C']],
+      trump: 'D',
+      turn: 'A',
+    });
+    const prev = makeUpdate(onTable, 'A');
+    const vidbiy = makeUpdate(p2, 'A', {
+      events: [{ type: 'played', playerId: 'A', card: c('8D') }, { type: 'vidbiy', closerId: 'A' }],
+    });
+    expect(sweptCards(prev, vidbiy)).toEqual([c('6D'), c('7D'), c('8D')]);
+    // Взятая нижняя не улетает — она переезжает в руку одним элементом; и без отбоя улетать нечему.
+    const took = makeUpdate(p2, 'A', { events: [{ type: 'tookBottom', playerId: 'B', card: c('6D') }] });
+    expect(sweptCards(prev, took)).toEqual([]);
+    expect(sweptCards(prev, makeUpdate(p2, 'A'))).toEqual([]);
+    expect(sweptCards(null, vidbiy)).toEqual([c('8D')]);
   });
 
   it('gives a celebration beat only when somebody goes out on a table that is still on screen', () => {

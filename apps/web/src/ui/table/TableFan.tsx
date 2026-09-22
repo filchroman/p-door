@@ -1,42 +1,55 @@
-import type { Card, TableCard } from '@vakhta/engine';
+import type { TableCard } from '@vakhta/engine';
 import type { CSSProperties } from 'react';
 import { cardKey } from '../../cards/labels';
 import { PlayingCard } from '../../cards/PlayingCard';
 import { ru } from '../../i18n/ru';
-import { useAppStore } from '../../store/appStore';
+import { useAppStore, type TableSweep } from '../../store/appStore';
 import { AnimatedCard } from '../anim/AnimatedCard';
-import { ExitGroup } from '../anim/ExitGroup';
 import { zoneProps } from './zones';
 
-/** Стол фазы 2: веер снизу вверх, нижняя и верхняя карты выделены; сюда можно бросить карту. */
+/** Класс карты по месту в веере: нижнюю можно взять, верхнюю — бить. */
+function fanClass(index: number, total: number): string {
+  return ['table-card', index === 0 ? 'is-bottom' : '', index === total - 1 ? 'is-top' : ''].filter(Boolean).join(' ');
+}
+
+/**
+ * Стол фазы 2: веер снизу вверх, нижняя и верхняя карты выделены; сюда можно бросить карту.
+ * В зоне всегда ровно карты среза: взятая нижняя переезжает в руку одним элементом по общему
+ * layoutId, а отбой улетает отдельным слоем поверх — карте незачем доигрывать уход внутри зоны.
+ */
 export function TableFan({ table }: { table: TableCard[] }) {
+  const sweep = useAppStore((s) => s.sweep);
   return (
-    <div className="table-fan" data-drop="table" aria-label={ru.table.tableZone} {...zoneProps('table', table.length)}>
-      <ExitGroup>
+    <div className="table-stage">
+      <div className="table-fan" data-drop="table" aria-label={ru.table.tableZone} {...zoneProps('table', table.length)}>
         {table.map((t, i) => (
-          <TableFanCard
+          <AnimatedCard
             key={cardKey(t.card)}
-            card={t.card}
-            className={['table-card', i === 0 ? 'is-bottom' : '', i === table.length - 1 ? 'is-top' : ''].filter(Boolean).join(' ')}
-            index={i}
-          />
+            id={cardKey(t.card)}
+            className={fanClass(i, table.length)}
+            style={{ '--i': i } as CSSProperties}
+          >
+            <PlayingCard card={t.card} />
+          </AnimatedCard>
         ))}
-      </ExitGroup>
+      </div>
+      {sweep && <SweptTable key={sweep.seq} sweep={sweep} />}
     </div>
   );
 }
 
 /**
- * Улетать карте или нет, решается здесь, а не пропом сверху: AnimatePresence доигрывает уходящую
- * карту тем элементом, каким она была в последнем кадре на столе, — проп бы застрял на прошлом срезе,
- * а подписка на стор обновляется и у уходящей карты. Отбой — карты улетают; взятая нижняя переезжает
- * в руку одним элементом по общему layoutId, поэтому exit ей не даём (иначе она играет в двух местах).
+ * Отбой: ушедший стол улетает отдельным слоем — карты только на transform и opacity, слой живёт
+ * ровно свою анимацию и снимается стором, поэтому после отбоя на столе не остаётся ничего.
  */
-function TableFanCard({ card, className, index }: { card: Card; className: string; index: number }) {
-  const sweep = useAppStore((s) => s.tableSweep);
+function SweptTable({ sweep }: { sweep: TableSweep }) {
   return (
-    <AnimatedCard id={cardKey(card)} className={className} style={{ '--i': index } as CSSProperties} exit={sweep}>
-      <PlayingCard card={card} />
-    </AnimatedCard>
+    <div className="table-sweep" aria-hidden style={{ '--sweep-ms': `${sweep.ms}ms` } as CSSProperties}>
+      {sweep.cards.map((card, i) => (
+        <div key={cardKey(card)} className={fanClass(i, sweep.cards.length)} style={{ '--i': i } as CSSProperties}>
+          <PlayingCard card={card} />
+        </div>
+      ))}
+    </div>
   );
 }

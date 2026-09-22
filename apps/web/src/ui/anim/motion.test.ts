@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { EXIT_MS, FADE_MS, FLY_MS, cardMotion, flipMotion } from './motion';
+import { EXIT_MS, FADE_MS, FLY_MS, cardMotion, flipMotion, sweepMs } from './motion';
 
 const ALLOWED = new Set(['x', 'y', 'scale', 'rotate', 'rotateY', 'opacity', 'transition']);
 const keysOf = (v: unknown) => (v && typeof v === 'object' ? Object.keys(v) : []);
 
 describe('cardMotion', () => {
   it('animates only transform and opacity, 180–320 ms, ease-out', () => {
-    const m = cardMotion({ reduced: false, speed: 1, exit: true });
-    for (const part of [m.initial, m.animate, m.exit]) for (const key of keysOf(part)) expect(ALLOWED.has(key)).toBe(true);
+    const m = cardMotion({ reduced: false, speed: 1 });
+    for (const part of [m.initial, m.animate]) for (const key of keysOf(part)) expect(ALLOWED.has(key)).toBe(true);
     expect(m.layoutId).toBe(true);
     expect(m.transition.duration * 1000).toBe(FLY_MS);
     expect(FLY_MS).toBeGreaterThanOrEqual(180);
@@ -16,14 +16,23 @@ describe('cardMotion', () => {
   });
 
   it('speeds up when the queue catches up', () => {
-    expect(cardMotion({ reduced: false, speed: 2, exit: false }).transition.duration * 1000).toBe(FLY_MS / 2);
+    expect(cardMotion({ reduced: false, speed: 2 }).transition.duration * 1000).toBe(FLY_MS / 2);
   });
 
   it('reduced motion: a short fade, no flight', () => {
-    const m = cardMotion({ reduced: true, speed: 1, exit: true });
+    const m = cardMotion({ reduced: true, speed: 1 });
     expect(m.layoutId).toBe(false);
     expect([...keysOf(m.initial), ...keysOf(m.animate)].every((k) => k === 'opacity')).toBe(true);
     expect(m.transition.duration).toBeLessThanOrEqual(0.15);
+  });
+});
+
+describe('sweepMs', () => {
+  it('the swept table flies for the exit beat, faster when the queue catches up, a short fade with less motion', () => {
+    expect(sweepMs(1, false)).toBe(EXIT_MS);
+    expect(sweepMs(2, false)).toBe(EXIT_MS / 2);
+    expect(sweepMs(0.5, false)).toBe(EXIT_MS);
+    expect(sweepMs(1, true)).toBe(FADE_MS);
   });
 });
 

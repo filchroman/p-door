@@ -124,17 +124,15 @@ export function nextMarks(prev: RecentMarks, update: ClientUpdate, now: number =
 }
 
 /**
- * Куда уходят карты со стола: отбой (и затык) сметает стол целиком — карты улетают (exit);
- * взятая нижняя переезжает в руку одним элементом по общему layoutId — улетать ей нельзя.
- * Флаг держится между уходами: иначе он сменился бы посреди доигрывающего exit.
+ * Карты, которые этот срез отправил в отбой: стол прошлого среза плюс сыгранное в этом же срезе
+ * (движок кладёт карту на стол и тут же закрывает отбой). Взятая нижняя сюда не попадает —
+ * она переезжает в руку одним элементом по общему layoutId, а не улетает.
  */
-export function nextTableSweep(prev: boolean, update: ClientUpdate): boolean {
-  let sweep = prev;
-  for (const event of update.events) {
-    if (event.type === 'vidbiy') sweep = true;
-    else if (event.type === 'tookBottom') sweep = false;
-  }
-  return sweep;
+export function sweptCards(prev: ClientUpdate | null, update: ClientUpdate): Card[] {
+  if (!update.events.some((event) => event.type === 'vidbiy')) return [];
+  const before = prev ? prev.view.table.map((t) => t.card) : [];
+  const played = update.events.flatMap((event) => (event.type === 'played' ? [event.card] : []));
+  return [...before, ...played];
 }
 
 export function eventToasts(update: ClientUpdate): ToastSpec[] {

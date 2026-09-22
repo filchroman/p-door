@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import { ru } from '../i18n/ru';
 import { testHostOptions } from '../test/hostOptions';
-import { c, phase1State } from '../test/states';
+import { c, phase1State, phase2State } from '../test/states';
 import { fakeClient, makeUpdate, resetStore } from '../test/updates';
+import { EXIT_MS } from '../ui/anim/motion';
 import { useAppStore } from './appStore';
 import { STEP_MS } from './updatePump';
 
@@ -57,16 +58,25 @@ describe('app store', () => {
     expect(useAppStore.getState().update!.view.drawn).toBeNull();
   });
 
-  it('remembers whether the table is being swept into the discard or losing its bottom card to a hand', async () => {
-    const { client, emit } = fakeClient(makeUpdate(start(), 'p0'));
+  it('sends the swept table into a layer of its own and takes that layer down when it has flown', async () => {
+    const onTable = phase2State({
+      players: [{ id: 'p0', hand: '7H' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      table: [['6D', 'p1'], ['7D', 'p2']],
+      trump: 'D',
+      turn: 'p0',
+    });
+    const { client, emit } = fakeClient(makeUpdate(onTable, 'p0'));
     resetStore({ makeClient: () => client, motionEnabled: true });
     await useAppStore.getState().startMatch(setup);
-    expect(useAppStore.getState().tableSweep).toBe(false);
+    expect(useAppStore.getState().sweep).toBeNull();
     emit(makeUpdate(start(), 'p0', { events: [{ type: 'vidbiy', closerId: 'p1' }] }));
-    expect(useAppStore.getState().tableSweep).toBe(true);
+    expect(useAppStore.getState().sweep).toMatchObject({ cards: [c('6D'), c('7D')], ms: EXIT_MS });
+    // Взятая нижняя не улетает: слой отбоя живёт свой срок и пропадает целиком.
     emit(makeUpdate(start(), 'p0', { events: [{ type: 'tookBottom', playerId: 'p1', card: c('7H') }] }));
     vi.advanceTimersByTime(STEP_MS);
-    expect(useAppStore.getState().tableSweep).toBe(false);
+    expect(useAppStore.getState().sweep).not.toBeNull();
+    vi.advanceTimersByTime(EXIT_MS);
+    expect(useAppStore.getState().sweep).toBeNull();
   });
 
   it('shows a Russian toast and vibrates for a rejected intent, and drops the selection', async () => {

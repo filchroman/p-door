@@ -1,9 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { CSSProperties } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetStore } from '../../test/updates';
 import { AnimatedCard } from './AnimatedCard';
-import { ExitGroup } from './ExitGroup';
 import { FlipIn } from './FlipIn';
 
 beforeEach(() => resetStore({ motionEnabled: true }));
@@ -38,19 +37,23 @@ describe('animation primitives', () => {
     expect(el.getAttribute('style')).toBeNull();
   });
 
-  it('cards leaving an ExitGroup play their exit and then disappear', async () => {
+  it('a card gone from the slice is gone from the DOM the same frame — nothing doubles as a ghost', async () => {
     const table = (ids: string[]) => (
-      <ExitGroup>
+      <>
         {ids.map((id) => (
-          <AnimatedCard key={id} id={id} exit>
+          <AnimatedCard key={id} id={id}>
             <span>{id}</span>
           </AnimatedCard>
         ))}
-      </ExitGroup>
+      </>
     );
     const { rerender } = render(table(['9H', 'JH']));
+    rerender(table(['JH']));
+    await act(async () => {});
+    expect(screen.queryByText('9H')).toBeNull();
+    expect(screen.getByText('JH')).toBeInTheDocument();
     rerender(table([]));
-    await waitFor(() => expect(screen.queryByText('9H')).toBeNull(), { timeout: 2000 });
+    await act(async () => {});
     expect(screen.queryByText('JH')).toBeNull();
   });
 });

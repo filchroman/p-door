@@ -65,7 +65,16 @@
 @keyframes vakhta-pulse { 50% { transform: scale(1.06); } }
 
 /* фаза 2 */
+.table-stage { position: relative; width: 140px; min-height: 220px; }
 .table-fan { position: relative; width: 140px; min-height: 220px; border-radius: 12px; }
+/* Отбой: слой поверх зоны, живёт ровно свою анимацию — в зоне остаются только карты среза. */
+.table-sweep { position: absolute; inset: 0; pointer-events: none; perspective: 700px; }
+.table-sweep .table-card { will-change: transform; animation: table-sweep var(--sweep-ms, 300ms) var(--ease-out) both; }
+@keyframes table-sweep { to { transform: translate3d(260px, 0, 0) rotate(25deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .table-sweep .table-card { animation-name: table-sweep-fade; }
+  @keyframes table-sweep-fade { to { opacity: 0; } }
+}
 .table-card { --card-w: 70px; position: absolute; left: calc(50% - 35px + var(--i) * 3px); bottom: calc(var(--i) * 24px); }
 .table-card.is-top { z-index: 2; }
 .table-card.is-top .card::after { opacity: 1; }

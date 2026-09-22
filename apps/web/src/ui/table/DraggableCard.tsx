@@ -10,14 +10,16 @@ export interface DraggableCardProps {
   onTap(): void;
   onDrop(target: string): void;
   accept?: (id: string) => boolean;
+  /** false — появление карты показывает обёртка FlyFrom. */
+  enter?: boolean;
 }
 
-export function DraggableCard({ card, selected, onTap, onDrop, accept }: DraggableCardProps) {
+export function DraggableCard({ card, selected, onTap, onDrop, accept, enter }: DraggableCardProps) {
   const drag = useDrag({ onTap, onDrop, accept });
   const classes = ['draggable', selected ? 'is-selected' : '', drag.dragging ? 'is-dragging' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} role="button" aria-pressed={selected} aria-label={cardLabel(card)} {...drag.handlers}>
-      <AnimatedCard id={cardKey(card)}>
+      <AnimatedCard id={cardKey(card)} enter={enter}>
         <PlayingCard card={card} />
       </AnimatedCard>
     </div>

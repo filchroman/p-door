@@ -4,9 +4,13 @@ import { PlayingCard } from '../../cards/PlayingCard';
 import { ru } from '../../i18n/ru';
 import { AnimatedCard } from '../anim/AnimatedCard';
 import { FlipIn } from '../anim/FlipIn';
+import { FlyFrom } from '../anim/FlyFrom';
 import { DraggableCard } from './DraggableCard';
 import { layerOffset } from './layers';
 import { zoneProps } from './zones';
+
+/** Вытянутая карта летит от колоды к своему месту справа от неё — видимой траекторией (спека §2c). */
+const DECK_ZONE = 'deck';
 
 export interface DeckAreaProps {
   count: number;
@@ -43,17 +47,20 @@ export function DeckArea({ count, drawn, canDraw, drawnDraggable, drawnSelected,
         </span>
         <span className="deck__count">{count}</span>
       </button>
+      {/* Место под вытянутую занято всегда: её появление ничего не двигает (спека §2c). */}
       <div className="drawn-slot" {...zoneProps('drawn', drawn ? 1 : 0)}>
         {drawn && (
-          <FlipIn key={cardKey(drawn)} flip>
-            {drawnDraggable ? (
-              <DraggableCard card={drawn} selected={drawnSelected} onTap={onDrawnTap} onDrop={onDrawnDrop} accept={accept} />
-            ) : (
-              <AnimatedCard id={cardKey(drawn)}>
-                <PlayingCard card={drawn} />
-              </AnimatedCard>
-            )}
-          </FlipIn>
+          <FlyFrom key={cardKey(drawn)} from={DECK_ZONE}>
+            <FlipIn flip>
+              {drawnDraggable ? (
+                <DraggableCard card={drawn} selected={drawnSelected} onTap={onDrawnTap} onDrop={onDrawnDrop} accept={accept} enter={false} />
+              ) : (
+                <AnimatedCard id={cardKey(drawn)} enter={false}>
+                  <PlayingCard card={drawn} />
+                </AnimatedCard>
+              )}
+            </FlipIn>
+          </FlyFrom>
         )}
       </div>
     </div>

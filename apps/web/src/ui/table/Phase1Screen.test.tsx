@@ -60,6 +60,26 @@ describe('Phase1Screen', () => {
     expect(filledSlot.querySelectorAll('.card')).toHaveLength(1);
   });
 
+  /**
+   * Перелёт «со стопки на чужую стопку» и «из колоды к стопке» держится на общем layoutId:
+   * один и тот же элемент переезжает между зонами. Если карта в стопке или в слоте вытянутой
+   * потеряет свой id, она начнёт телепортироваться (спека §2c).
+   */
+  it('every card that can move carries its own layoutId', () => {
+    const state = phase1State({
+      players: [{ id: 'A', stack: '6C 9H' }, { id: 'B', stack: '8D' }, { id: 'C', stack: 'KD' }],
+      deck: 'QS JD',
+      drawn: 'TS',
+    });
+    resetStore({ update: makeUpdate(state, 'A'), send, motionEnabled: true });
+    const { container } = render(<Phase1Screen />);
+    const idOf = (zone: string) => container.querySelector(`[data-zone="${zone}"] [data-layout-id]`)?.getAttribute('data-layout-id');
+    expect(idOf('stack-A')).toBe('9H');
+    expect(idOf('stack-B')).toBe('8D');
+    expect(idOf('stack-C')).toBe('KD');
+    expect(idOf('drawn')).toBe('TS');
+  });
+
   it('an empty deck shows no cards but keeps its counter', () => {
     const { container } = show(phase1State({ players: [{ id: 'A', stack: '7H' }, { id: 'B', stack: 'QC' }], deck: '' }));
     expect(container.querySelectorAll('[data-zone="deck"] .card')).toHaveLength(0);

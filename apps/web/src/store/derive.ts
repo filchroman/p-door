@@ -134,6 +134,39 @@ export function sweptCards(prev: ClientUpdate | null, update: ClientUpdate): Car
   return [...before, ...played];
 }
 
+/** Кто сейчас действует и что именно сделал: подсветка рамки и подпись рядом с ней (спека §2c). */
+export interface ActingFx {
+  id: PlayerId;
+  text: string;
+  /** Растёт на каждое действие: перезапускает появление подписи, даже если текст тот же. */
+  seq: number;
+}
+
+/**
+ * Подпись выводится из событий одного применённого действия — очередь показывает срезы по одному,
+ * поэтому в пачке ровно одно действие игрока. Последствия (`vidbiy`, `out`, `trump`) — не действия.
+ */
+export function actingFrom(update: ClientUpdate, seq: number): ActingFx | null {
+  for (const event of update.events) {
+    switch (event.type) {
+      case 'drew':
+        return { id: event.playerId, text: ru.act.drew, seq };
+      case 'kept':
+        return { id: event.playerId, text: ru.act.kept, seq };
+      case 'played':
+        return { id: event.playerId, text: ru.act.played, seq };
+      case 'tookBottom':
+        return { id: event.playerId, text: ru.act.tookBottom, seq };
+      case 'placed':
+        // «+1» на свою же стопку — не нарушение (спека §2.2), но и не перекладывание сопернику.
+        return { id: event.playerId, text: event.to === event.playerId ? ru.act.kept : ru.act.moved(playerName(update, event.to)), seq };
+      case 'movedTop':
+        return { id: event.from, text: ru.act.moved(playerName(update, event.to)), seq };
+    }
+  }
+  return null;
+}
+
 export function eventToasts(update: ClientUpdate): ToastSpec[] {
   const toasts: ToastSpec[] = [];
   for (const event of update.events) {

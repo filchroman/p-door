@@ -4,7 +4,7 @@ import type { ClientUpdate } from '../client/types';
 import { ru } from '../i18n/ru';
 import { c, phase1State, phase2State } from '../test/states';
 import { makeUpdate, seatsFor } from '../test/updates';
-import { FX_MS, celebrationHoldMs, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, sweptCards } from './derive';
+import { FX_MS, actingFrom, celebrationHoldMs, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, sweptCards } from './derive';
 
 const p2 = phase2State({ players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }], trump: 'D', turn: 'A' });
 
@@ -137,5 +137,40 @@ describe('store derive', () => {
     expect(keepSelection({ kind: 'ownTop' }, makeUpdate(noDrawn, 'A').view)).toEqual({ kind: 'ownTop' });
     expect(keepSelection({ kind: 'ownTop' }, makeUpdate(drawn, 'A').view)).toBeNull();
     expect(keepSelection({ kind: 'drawn' }, makeUpdate(drawn, 'B').view)).toBeNull();
+  });
+});
+
+describe('actingFrom', () => {
+  const p1 = phase1State({ players: [{ id: 'A', stack: '6C' }, { id: 'B', stack: '7C' }, { id: 'C', stack: '8C' }], deck: 'TS 9D' });
+  const names = { A: 'Вася', B: 'Боря', C: 'Галя' };
+  const acting = (state: typeof p1, events: ClientUpdate['events']) =>
+    actingFrom(makeUpdate(state, 'A', { players: seatsFor(state, names), events }), 7);
+
+  it('names who acted and what they did', () => {
+    expect(acting(p1, [{ type: 'drew', playerId: 'B', card: c('TS') }])).toEqual({ id: 'B', text: 'вытянул', seq: 7 });
+    expect(acting(p1, [{ type: 'placed', playerId: 'B', to: 'C', card: c('TS') }])).toEqual({ id: 'B', text: 'переложил Гале', seq: 7 });
+    expect(acting(p1, [{ type: 'movedTop', from: 'C', to: 'B', card: c('8C') }])).toEqual({ id: 'C', text: 'переложил Боре', seq: 7 });
+    expect(acting(p1, [{ type: 'kept', playerId: 'B', card: c('TS') }])).toEqual({ id: 'B', text: 'оставил себе', seq: 7 });
+    expect(acting(p2, [{ type: 'played', playerId: 'C', card: c('8C') }])).toEqual({ id: 'C', text: 'побил', seq: 7 });
+    expect(acting(p2, [{ type: 'tookBottom', playerId: 'A', card: c('6C') }])).toEqual({ id: 'A', text: 'взял нижнюю', seq: 7 });
+  });
+
+  it('«+1» на свою же стопку — это «оставил себе», а не «переложил себе»', () => {
+    expect(acting(p1, [{ type: 'placed', playerId: 'B', to: 'B', card: c('TS') }])).toEqual({ id: 'B', text: 'оставил себе', seq: 7 });
+  });
+
+  it('ignores updates without an action of a player', () => {
+    expect(acting(p1, [])).toBeNull();
+    expect(acting(p2, [{ type: 'vidbiy', closerId: 'C' }, { type: 'out', playerId: 'C' }])).toBeNull();
+  });
+
+  it('takes the action itself, not what it caused', () => {
+    expect(
+      acting(p2, [
+        { type: 'played', playerId: 'C', card: c('8C') },
+        { type: 'vidbiy', closerId: 'C' },
+        { type: 'out', playerId: 'C' },
+      ]),
+    ).toEqual({ id: 'C', text: 'побил', seq: 7 });
   });
 });

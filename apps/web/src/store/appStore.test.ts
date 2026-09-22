@@ -6,7 +6,7 @@ import { c, phase1State, phase2State } from '../test/states';
 import { fakeClient, makeUpdate, resetStore } from '../test/updates';
 import { EXIT_MS } from '../ui/anim/motion';
 import { useAppStore } from './appStore';
-import { STEP_MS } from './updatePump';
+import { CAPTION_MS, STEP_MS } from './updatePump';
 
 const setup: MatchSetup = { nick: 'Вася', playerCount: 3, settings: { deckSize: 36, turnSeconds: 0, stallRule: 'forcedVidbiy' } };
 const start = () =>
@@ -58,6 +58,34 @@ describe('app store', () => {
     expect(useAppStore.getState().update!.view.drawn).toBeNull();
   });
 
+  it('says who acted, one action at a time, and lets the caption fade when play stops (§2c)', async () => {
+    resetStore({ makeClient, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    useAppStore.getState().send({ type: 'draw' });
+    expect(useAppStore.getState().acting).toMatchObject({ id: 'p0', text: ru.act.drew });
+    const drewSeq = useAppStore.getState().acting!.seq;
+
+    useAppStore.getState().send({ type: 'placeDrawn', to: 'p0' });
+    // Второе действие ждёт своей очереди: подпись пока прежняя, действия не накладываются.
+    expect(useAppStore.getState().acting!.seq).toBe(drewSeq);
+    vi.advanceTimersByTime(STEP_MS);
+    expect(useAppStore.getState().acting).toMatchObject({ id: 'p0', text: ru.act.kept });
+    expect(useAppStore.getState().acting!.seq).toBeGreaterThan(drewSeq);
+
+  });
+
+  it('the caption fades instead of hanging on the frame until the end of the round', async () => {
+    const { client, emit } = fakeClient(makeUpdate(start(), 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    emit(makeUpdate(start(), 'p0', { events: [{ type: 'tookBottom', playerId: 'p1', card: c('7H') }] }));
+    expect(useAppStore.getState().acting).toMatchObject({ id: 'p1', text: ru.act.tookBottom });
+    vi.advanceTimersByTime(CAPTION_MS - 1);
+    expect(useAppStore.getState().acting).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(useAppStore.getState().acting).toBeNull();
+  });
+
   it('sends the swept table into a layer of its own and takes that layer down when it has flown', async () => {
     const onTable = phase2State({
       players: [{ id: 'p0', hand: '7H' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
@@ -78,11 +106,15 @@ describe('app store', () => {
     expect(useAppStore.getState().sweep).toBeNull();
     emit(makeUpdate(closed, 'p0', { events: [{ type: 'vidbiy', closerId: 'p1' }] }));
     expect(useAppStore.getState().sweep).toMatchObject({ cards: [c('6D'), c('7D')], ms: EXIT_MS });
-    // Взятая нижняя не улетает: слой отбоя живёт свой срок и пропадает целиком.
+    // Взятая нижняя не улетает: слой отбоя живёт ровно свой срок и пропадает целиком.
     emit(makeUpdate(start(), 'p0', { events: [{ type: 'tookBottom', playerId: 'p1', card: c('7H') }] }));
-    vi.advanceTimersByTime(STEP_MS);
+    vi.advanceTimersByTime(EXIT_MS - 1);
     expect(useAppStore.getState().sweep).not.toBeNull();
-    vi.advanceTimersByTime(EXIT_MS);
+    vi.advanceTimersByTime(1);
+    expect(useAppStore.getState().sweep).toBeNull();
+    // Следующий срез очереди слой не возвращает.
+    vi.advanceTimersByTime(STEP_MS);
+    expect(useAppStore.getState().update!.view.table).toHaveLength(0);
     expect(useAppStore.getState().sweep).toBeNull();
   });
 

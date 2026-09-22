@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plural, ru } from './ru';
+import { dative, plural, ru } from './ru';
 
 describe('ru', () => {
   it('declines Russian plurals', () => {
@@ -7,6 +7,24 @@ describe('ru', () => {
     expect([1, 2, 4, 5, 11, 12, 21, 22, 25, 111].map((n) => plural(n, forms))).toEqual([
       'фол', 'фола', 'фола', 'фолов', 'фолов', 'фолов', 'фол', 'фола', 'фолов', 'фолов',
     ]);
+  });
+
+  it('puts names into the dative for «переложил …»', () => {
+    expect(['Боря', 'Галя', 'Люда', 'Петрович', 'Семён', 'Тест'].map(dative)).toEqual([
+      'Боре', 'Гале', 'Люде', 'Петровичу', 'Семёну', 'Тесту',
+    ]);
+    expect(dative('Мария')).toBe('Марии');
+    // Ник на латинице или с гласной на конце не склоняем — лучше без падежа, чем «Игроку» из «Igro».
+    expect(dative('Igor')).toBe('Igor');
+    expect(dative('Петро')).toBe('Петро');
+  });
+
+  it('names every action of §2c', () => {
+    expect(ru.act.drew).toBe('вытянул');
+    expect(ru.act.kept).toBe('оставил себе');
+    expect(ru.act.played).toBe('побил');
+    expect(ru.act.tookBottom).toBe('взял нижнюю');
+    expect(ru.act.moved('Галя')).toBe('переложил Гале');
   });
 
   it('formats the penalty prompt exactly as in the spec', () => {

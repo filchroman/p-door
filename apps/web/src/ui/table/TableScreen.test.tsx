@@ -52,6 +52,28 @@ describe('TableScreen', () => {
     expect(container.querySelector('.table-screen')).toHaveAttribute('data-total', '36');
   });
 
+  it('shows who acted and highlights that frame (§2c)', () => {
+    useAppStore.setState({ acting: { id: 'B', text: 'переложил Гале', seq: 3 } });
+    render(<TableScreen center={null} mine={null} action={null} />);
+    const actor = screen.getByTestId('player-B');
+    expect(within(actor).getByTestId('caption-B')).toHaveTextContent('переложил Гале');
+    expect(actor).toHaveClass('is-acting');
+    expect(screen.getByTestId('player-C')).not.toHaveClass('is-acting');
+    expect(screen.queryByTestId('caption-C')).toBeNull();
+  });
+
+  it('shows my own caption in the bottom bar too', () => {
+    useAppStore.setState({ acting: { id: 'A', text: 'взял нижнюю', seq: 4 } });
+    render(<TableScreen center={null} mine={null} action={null} />);
+    expect(within(screen.getByTestId('player-A')).getByTestId('caption-A')).toHaveTextContent('взял нижнюю');
+  });
+
+  it('shows no caption when nobody has just acted', () => {
+    render(<TableScreen center={null} mine={null} action={null} />);
+    expect(screen.queryByTestId(/^caption-/)).toBeNull();
+    expect(document.querySelectorAll('.player-frame.is-acting')).toHaveLength(0);
+  });
+
   it('renders per-opponent extras', () => {
     render(<TableScreen center={null} mine={null} action={null} opponentExtras={(p) => <span>{`x-${p.id}`}</span>} />);
     expect(within(screen.getByTestId('player-D')).getByText('x-D')).toBeInTheDocument();

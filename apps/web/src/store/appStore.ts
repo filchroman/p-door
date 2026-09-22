@@ -5,9 +5,11 @@ import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import type { BotSpeed, LogEntry } from '../client/debug';
 import type { AppClient, ClientUpdate, Intent } from '../client/types';
 import { sweepMs } from '../ui/anim/motion';
+import { zoneOrigin, type Origin } from '../ui/anim/origins';
 import { prefersReducedMotion } from '../ui/anim/reducedMotion';
 import { VIBRATE_ERROR, vibrate } from '../ui/haptics';
 import {
+  actingFrom,
   celebrationHoldMs,
   emptyMarks,
   errorText,
@@ -15,13 +17,14 @@ import {
   keepSelection,
   nextMarks,
   sweptCards,
+  type ActingFx,
   type RecentMarks,
   type Selection,
   type ToastSpec,
   type ToastTone,
 } from './derive';
 import { exposeView } from './expose';
-import { UpdatePump } from './updatePump';
+import { UpdatePump, captionHoldMs } from './updatePump';
 
 export type Screen = 'home' | 'loading' | 'game';
 
@@ -62,6 +65,10 @@ export interface AppState {
   sweep: TableSweep | null;
   /** Идёт праздничный такт: стол с лентой «Вышел!» держится, итоги ещё не открыты. */
   celebrating: boolean;
+  /** Кто сейчас действует и что сделал: подсветка рамки и подпись рядом с ней (спека §2c). */
+  acting: ActingFx | null;
+  /** Откуда лететь картам, только что открытым из моего прикупа: его место на прошлом кадре. */
+  prykupOrigin: Origin | null;
   makeClient: (setup: MatchSetup) => AppClient;
   preload: (deckSize: DeckSize) => Promise<void>;
   startMatch(setup: MatchSetup): Promise<void>;
@@ -86,6 +93,13 @@ let detach: (() => void) | null = null;
 let celebrateTimer: ReturnType<typeof setTimeout> | null = null;
 let sweepTimer: ReturnType<typeof setTimeout> | null = null;
 let sweepSeq = 0;
+let actTimer: ReturnType<typeof setTimeout> | null = null;
+let actSeq = 0;
+
+function stopActing(): void {
+  if (actTimer !== null) clearTimeout(actTimer);
+  actTimer = null;
+}
 
 function stopCelebration(): void {
   if (celebrateTimer !== null) clearTimeout(celebrateTimer);
@@ -108,13 +122,22 @@ export const useAppStore = create<AppState>()((set, get) => {
     // Отбой улетает отдельным слоем: в самой зоне стола всегда ровно карты среза.
     const swept = motionEnabled && !fresh ? sweptCards(prev, update) : [];
     const ms = sweepMs(speed, reduced);
+    // Прикуп исчезает вместе со срезом: снимаем его место с ещё не перерисованного экрана,
+    // чтобы открытые карты прилетели в руку оттуда, где прикуп лежал (спека §2c).
+    const opensPrykup = update.events.some((event) => event.type === 'prykupOpened' && event.playerId === update.view.me);
+    const prykupOrigin = motionEnabled && opensPrykup ? zoneOrigin(`prykup-${update.view.me}`) : null;
+    const acting = actingFrom(update, ++actSeq);
+    const captionMs = captionHoldMs(speed);
     stopCelebration();
+    stopActing();
     if (fresh || swept.length > 0) stopSweep();
     set({
       update,
       animSpeed: speed,
       sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms } : fresh ? null : sweep,
       celebrating: hold > 0,
+      acting,
+      prykupOrigin,
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),
       allHands: debug.showAllHands ? (client?.debug?.allHands() ?? null) : null,
@@ -135,6 +158,13 @@ export const useAppStore = create<AppState>()((set, get) => {
         set({ sweep: null });
       }, ms);
     }
+    // Подпись сменяется следующим действием; если его нет — гаснет сама, а не висит до конца партии.
+    if (acting && motionEnabled) {
+      actTimer = setTimeout(() => {
+        actTimer = null;
+        set({ acting: null });
+      }, captionMs);
+    }
     for (const toast of eventToasts(update)) get().pushToast(toast.text, toast.tone);
   };
 
@@ -154,6 +184,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       pump.clear();
       stopCelebration();
       stopSweep();
+      stopActing();
       client.dispose();
     };
   };
@@ -173,6 +204,8 @@ export const useAppStore = create<AppState>()((set, get) => {
     animSpeed: 1,
     sweep: null,
     celebrating: false,
+    acting: null,
+    prykupOrigin: null,
     makeClient: (setup) => createLocalMatch(setup),
     preload: (deckSize) => preloadDeck(deckSize),
 
@@ -193,6 +226,8 @@ export const useAppStore = create<AppState>()((set, get) => {
         animSpeed: 1,
         sweep: null,
         celebrating: false,
+        acting: null,
+        prykupOrigin: null,
         marks: emptyMarks(update?.session.gameNumber ?? 0),
         selection: null,
         allHands: debug.showAllHands ? (client.debug?.allHands() ?? null) : null,
@@ -231,8 +266,9 @@ export const useAppStore = create<AppState>()((set, get) => {
       detach?.();
       detach = null;
       stopSweep();
+      stopActing();
       exposeView(null);
-      set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], sweep: null, celebrating: false });
+      set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], sweep: null, celebrating: false, acting: null, prykupOrigin: null });
     },
 
     async restart() {

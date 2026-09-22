@@ -9,6 +9,20 @@ export function plural(n: number, forms: [string, string, string]): string {
   return forms[2];
 }
 
+/**
+ * Имя в дательном падеже для подписи «переложил Гале» (спека §2c). Ники произвольные, поэтому
+ * склоняем только то, что уверенно узнаём: имена на -а/-я и кириллицу на согласную. Остальное
+ * оставляем как есть — без падежа читается лучше, чем с выдуманным окончанием.
+ */
+const CYRILLIC_CONSONANT = /[бвгджзклмнпрстфхцчшщ]$/i;
+
+export function dative(name: string): string {
+  if (name.endsWith('ия')) return `${name.slice(0, -1)}и`;
+  if (name.endsWith('а') || name.endsWith('я')) return `${name.slice(0, -1)}е`;
+  if (name.endsWith('й') || name.endsWith('ь')) return `${name.slice(0, -1)}ю`;
+  return CYRILLIC_CONSONANT.test(name) ? `${name}у` : name;
+}
+
 const foulsText = (n: number) => `${n} ${plural(n, ['фол', 'фола', 'фолов'])}`;
 const cardsText = (n: number) => `${n} ${plural(n, ['карту', 'карты', 'карт'])}`;
 
@@ -47,6 +61,14 @@ export const ru = {
     out: 'Вышел',
     vakhta: 'Вахта!',
     caught: 'Поймал!',
+  },
+  /** Короткие подписи «кто что сделал» рядом с рамкой игрока (спека §2c). */
+  act: {
+    drew: 'вытянул',
+    kept: 'оставил себе',
+    played: 'побил',
+    tookBottom: 'взял нижнюю',
+    moved: (name: string) => `переложил ${dative(name)}`,
   },
   fx: {
     stamp: 'ВАХТА!',

@@ -16,11 +16,17 @@ export interface PlayerFrameProps {
   caughtSeq: number | null;
   /** seq свежего выхода из партии. */
   outSeq: number | null;
+  /** Что этот игрок только что сделал: «вытянул», «переложил Гале» (спека §2c). */
+  caption: string | null;
+  /** Номер действия: тем же текстом подряд подпись всё равно появляется заново. */
+  captionSeq: number | null;
   children?: ReactNode;
 }
 
-export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, caughtSeq, outSeq, children }: PlayerFrameProps) {
-  const classes = ['player-frame', status === 'turn' ? 'is-turn' : '', player.out ? 'is-out' : ''].filter(Boolean).join(' ');
+export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, caughtSeq, outSeq, caption, captionSeq, children }: PlayerFrameProps) {
+  const classes = ['player-frame', status === 'turn' ? 'is-turn' : '', caption ? 'is-acting' : '', player.out ? 'is-out' : '']
+    .filter(Boolean)
+    .join(' ');
   return (
     <div className={classes} data-testid={`player-${seat.id}`}>
       <div className="plaque-slot">{status && <span className={`plaque plaque--${status}`}>{ru.status[status]}</span>}</div>
@@ -45,6 +51,12 @@ export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, cau
         {turnEndsAt !== null && <Countdown endsAt={turnEndsAt} totalMs={turnTotalMs} className="avatar-timer" />}
       </div>
       <div className="player-name">{seat.name}</div>
+      {/* Подпись лежит поверх рамки: появляется и гаснет, ничего не сдвигая. */}
+      {caption && (
+        <span key={captionSeq ?? caption} className="act-caption" data-testid={`caption-${seat.id}`}>
+          {caption}
+        </span>
+      )}
       {children && <div className="player-extras">{children}</div>}
     </div>
   );

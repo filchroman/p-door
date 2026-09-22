@@ -14,6 +14,8 @@ export interface AnimatedCardProps {
    * Общий layoutId при этом остаётся — перелёт между зонами (рука ↔ стол) никуда не девается.
    */
   carried?: boolean;
+  /** false — появление карты показывает кто-то другой (FlyFrom), своего «падения сверху» тут нет. */
+  enter?: boolean;
   children: ReactNode;
 }
 
@@ -22,7 +24,7 @@ export interface AnimatedCardProps {
  * Доигрывающих уход карт поверх зоны здесь нет: прерванный уход оставлял их в DOM навсегда
  * (призраки на столе), поэтому отбой рисуется отдельным слоем — см. TableFan.
  */
-export function AnimatedCard({ id, className, style, carried = false, children }: AnimatedCardProps) {
+export function AnimatedCard({ id, className, style, carried = false, enter = true, children }: AnimatedCardProps) {
   const enabled = useAppStore((s) => s.motionEnabled);
   const speed = useAppStore((s) => s.animSpeed);
   const reduced = useReducedMotion() ?? false;
@@ -46,7 +48,7 @@ export function AnimatedCard({ id, className, style, carried = false, children }
       data-layout-id={m.layoutId ? id : undefined}
       className={classes}
       style={style as MotionStyle}
-      initial={m.initial as TargetAndTransition}
+      initial={(enter ? m.initial : m.animate) as TargetAndTransition}
       animate={m.animate as TargetAndTransition}
       transition={m.transition}
       onAnimationStart={on}

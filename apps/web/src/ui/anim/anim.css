@@ -3,3 +3,10 @@
 .flip-in__back { position: absolute; inset: 0; transform: rotateY(180deg); }
 .flip-in__back .card { width: 100%; }
 .table-fan, .hand, .trump-badge, .drawn-slot { perspective: 700px; }
+/* Перелёт из зоны без общего layoutId (колода → вытянутая, прикуп → рука): только transform. */
+.fly-from.is-flying { animation: fly-from var(--fly-ms, 260ms) var(--ease-out) both; }
+@keyframes fly-from { from { transform: translate3d(var(--fly-x, 0px), var(--fly-y, 0px), 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .fly-from.is-flying { animation-name: fly-from-fade; }
+  @keyframes fly-from-fade { from { opacity: 0; } }
+}

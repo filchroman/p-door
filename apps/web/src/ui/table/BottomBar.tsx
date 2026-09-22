@@ -14,6 +14,8 @@ export interface BottomBarProps {
   turnTotalMs: number | null;
   caughtSeq: number | null;
   outSeq: number | null;
+  caption: string | null;
+  captionSeq: number | null;
   trump: Suit | null;
   trumpCard: Card | null;
   counter: string | null;

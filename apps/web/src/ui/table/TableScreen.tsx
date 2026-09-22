@@ -21,6 +21,7 @@ export function TableScreen({ center, mine, action, opponentExtras }: TableScree
   const marks = useAppStore((s) => s.marks);
   const hasSelection = useAppStore((s) => s.selection !== null);
   const select = useAppStore((s) => s.select);
+  const acting = useAppStore((s) => s.acting);
   const { view, players, deadlines } = update;
   const now = Date.now();
   const seatOf = (id: PlayerId) => players.find((p) => p.id === id)!;
@@ -37,6 +38,8 @@ export function TableScreen({ center, mine, action, opponentExtras }: TableScree
     turnTotalMs: deadlines.turnTotalMs,
     caughtSeq: caughtSeq(p.id),
     outSeq: outSeq(p.id),
+    caption: acting?.id === p.id ? acting.text : null,
+    captionSeq: acting?.id === p.id ? acting.seq : null,
   });
   return (
     <div className="table-screen" data-total={cardsInPlay(view)} onClick={() => hasSelection && select(null)}>

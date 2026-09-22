@@ -6,6 +6,8 @@ import { useAppStore, type AppState } from '../../store/appStore';
 import { AnimatedCard } from '../anim/AnimatedCard';
 import { AnimatedGroup } from '../anim/AnimatedGroup';
 import { FlipIn } from '../anim/FlipIn';
+import { FlyFrom } from '../anim/FlyFrom';
+import type { Origin } from '../anim/origins';
 import { fanOverlap } from './fan';
 import { legalFromView } from './legal';
 import { useDrag } from './useDrag';
@@ -27,6 +29,8 @@ export const legalKeyOf = (s: AppState): string => (s.update ? legalFromView(s.u
 const myTurnOf = (s: AppState): boolean => s.update?.view.phase === 'phase2' && s.update.view.turn === s.update.view.me;
 const meOf = (s: AppState): string => s.update?.view.me ?? '';
 const flipOf = (s: AppState): boolean => !!s.update && s.marks.opened.includes(s.update.view.me);
+/** Ссылка стабильна между срезами: селектор не перерисовывает руку от чужих ходов. */
+const prykupOriginOf = (s: AppState): Origin | null => s.prykupOrigin;
 
 interface HandCardProps {
   code: string;
@@ -35,12 +39,14 @@ interface HandCardProps {
   angle: number;
   myTurn: boolean;
   flipIn: boolean;
+  /** Открытая из прикупа карта летит оттуда, где прикуп лежал (спека §2c). */
+  from: Origin | null;
   /** Веер перестраивает контейнер: карта не обмеряет себя, но свой layoutId сохраняет. */
   carried: boolean;
   onPlay(code: string): void;
 }
 
-const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, carried, onPlay }: HandCardProps) {
+const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, from, carried, onPlay }: HandCardProps) {
   const card = useMemo(() => parseCard(code), [code]);
   const drag = useDrag({
     onTap: () => {
@@ -54,11 +60,13 @@ const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipI
   const classes = ['hand-card', legal ? 'is-legal' : '', dim ? 'is-dim' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} data-legal={legal} style={{ '--angle': `${angle}deg` } as CSSProperties} {...drag.handlers}>
-      <AnimatedCard id={code} carried={carried}>
-        <FlipIn flip={flipIn}>
-          <PlayingCard card={card} />
-        </FlipIn>
-      </AnimatedCard>
+      <FlyFrom from={flipIn ? from : null}>
+        <AnimatedCard id={code} carried={carried} enter={!flipIn}>
+          <FlipIn flip={flipIn}>
+            <PlayingCard card={card} />
+          </FlipIn>
+        </AnimatedCard>
+      </FlyFrom>
     </div>
   );
 });
@@ -70,6 +78,7 @@ export const Hand = memo(function Hand() {
   const myTurn = useAppStore(myTurnOf);
   const me = useAppStore(meOf);
   const flipIn = useAppStore(flipOf);
+  const prykupOrigin = useAppStore(prykupOriginOf);
   const send = useAppStore((s) => s.send);
   const onPlay = useCallback((code: string) => send({ type: 'play', card: parseCard(code) }), [send]);
   const codes = handKey ? handKey.split(' ') : [];
@@ -95,6 +104,7 @@ export const Hand = memo(function Hand() {
           angle={(i - (codes.length - 1) / 2) * spread}
           myTurn={myTurn}
           flipIn={flipIn}
+          from={prykupOrigin}
           carried={big}
           onPlay={onPlay}
         />

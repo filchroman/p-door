@@ -71,7 +71,8 @@ export function useDrag({ onTap, onDrop, accept }: DragOptions) {
       setSnap(nearestZone(zones.current, e.clientX, e.clientY));
     },
     onPointerUp(e: PointerEvent<HTMLElement>) {
-      if (e.button !== 0) return;
+      // Отпустили не основную кнопку — перетаскивание не заканчиваем (у касания button здесь 0 или -1).
+      if (e.button > 0) return;
       const wasDrag = moved.current;
       const target = snap.current?.dataset.drop ?? null;
       release();

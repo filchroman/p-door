@@ -2,7 +2,9 @@ import type { PublicPlayer } from '@vakhta/engine';
 import { cardKey } from '../../cards/labels';
 import { PlayingCard } from '../../cards/PlayingCard';
 import { ru } from '../../i18n/ru';
+import { useAppStore } from '../../store/appStore';
 import { AnimatedCard } from '../anim/AnimatedCard';
+import { FlyFrom } from '../anim/FlyFrom';
 import { DraggableCard } from './DraggableCard';
 import { layerOffset } from './layers';
 import { Prykup } from './Prykup';
@@ -22,6 +24,9 @@ export interface PileProps {
 /** Открытая стопка фазы 1: ровно stackCount карт (видна верхняя), высота и закрытый прикуп. */
 export function Pile({ player, targetable, onTarget, topDraggable, topSelected, onTopTap, onTopDrop, accept }: PileProps) {
   const top = player.stackTop;
+  const topKey = top ? cardKey(top) : '';
+  // Карта не появляется на стопке из ниоткуда: она прилетает оттуда, где лежала (спека §2c.1).
+  const flight = useAppStore((s) => (topKey ? (s.flights.cards[topKey] ?? null) : null));
   const under = Math.max(0, player.stackCount - (top ? 1 : 0));
   const classes = ['pile', targetable ? 'is-targetable' : ''].filter(Boolean).join(' ');
   return (
@@ -42,13 +47,15 @@ export function Pile({ player, targetable, onTarget, topDraggable, topSelected, 
         ))}
         {top && (
           <div className="stack-layer" style={layerOffset(under)}>
-            {topDraggable ? (
-              <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} />
-            ) : (
-              <AnimatedCard id={cardKey(top)}>
-                <PlayingCard card={top} />
-              </AnimatedCard>
-            )}
+            <FlyFrom key={topKey} from={flight}>
+              {topDraggable ? (
+                <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} enter={!flight} />
+              ) : (
+                <AnimatedCard id={topKey} enter={!flight}>
+                  <PlayingCard card={top} />
+                </AnimatedCard>
+              )}
+            </FlyFrom>
           </div>
         )}
       </div>

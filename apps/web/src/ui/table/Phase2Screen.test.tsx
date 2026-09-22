@@ -134,17 +134,17 @@ describe('Hand: narrow subscription', () => {
   });
 
   /**
-   * Порог веера (MAX_ANIMATED_HAND) снимает с карт только собственный обмер layout — общий layoutId
-   * остаётся: иначе в обычной партии (3 игрока, 36 карт — это ~10 карт на руке) карта не летит
-   * ни в стол, ни из стола в руку, а просто исчезает и появляется (спека §2a, §2b).
+   * Порог веера (MAX_ANIMATED_HAND) снимает с карт только собственный обмер layout — имя карты
+   * остаётся при ней: иначе в обычной партии (3 игрока, 36 карт — это ~10 карт на руке) перелёту
+   * нечего искать, и карта не летит ни на стол, ни со стола в руку (спека §2a, §2c.1).
    */
-  it.each([3, MAX_ANIMATED_HAND, MAX_ANIMATED_HAND + 4])('a hand of %i keeps a shared layoutId on every card', (n) => {
+  it.each([3, MAX_ANIMATED_HAND, MAX_ANIMATED_HAND + 4])('a hand of %i keeps every card named', (n) => {
     const hand = 'JC 6C 7C 8C 9C TC QC KC 6D 7D'.split(' ').slice(0, n).join(' ');
     const state = phase2State({ players: [{ id: 'A', hand }, { id: 'B', hand: 'AS' }], trump: 'D', turn: 'B' });
     resetStore({ update: makeUpdate(state, 'A'), send, motionEnabled: true });
     const { container } = render(<Hand />);
     const zone = container.querySelector('[data-zone="hand-A"]')!;
     expect(zone.querySelectorAll('.card')).toHaveLength(n);
-    expect(zone.querySelectorAll('[data-layout-id]')).toHaveLength(n);
+    expect(zone.querySelectorAll('[data-card]')).toHaveLength(n);
   });
 });

@@ -30,9 +30,10 @@ export function AnimatedCard({ id, className, style, carried = false, enter = tr
   const reduced = useReducedMotion() ?? false;
   const ref = useRef<HTMLDivElement>(null);
   const classes = `animated-card ${className ?? ''}`.trim();
+  // data-card стоит всегда: по нему перелёт находит место карты на прошлом кадре (flights.ts).
   if (!enabled) {
     return (
-      <div className={classes} style={style}>
+      <div className={classes} style={style} data-card={id}>
         {children}
       </div>
     );
@@ -46,6 +47,7 @@ export function AnimatedCard({ id, className, style, carried = false, enter = tr
       layout={m.layoutId && !carried}
       layoutId={m.layoutId ? id : undefined}
       data-layout-id={m.layoutId ? id : undefined}
+      data-card={id}
       className={classes}
       style={style as MotionStyle}
       initial={(enter ? m.initial : m.animate) as TargetAndTransition}

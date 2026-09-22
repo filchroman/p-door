@@ -5,6 +5,10 @@ export interface ExposedView {
   gameNumber: number;
   status: string;
   phase: string;
+  /** Чей сейчас ход. */
+  turn: string;
+  /** Типы событий последнего показанного среза: по ним видно, какой ход сейчас проигрывается. */
+  events: string[];
   /** Сколько карт должно быть в каждой зоне по срезу. */
   zones: Record<string, number>;
   /** Сколько карт всего в игре по срезу. */
@@ -29,6 +33,8 @@ export function exposeView(update: ClientUpdate | null): void {
         gameNumber: update.session.gameNumber,
         status: update.session.status,
         phase: update.view.phase,
+        turn: update.view.turn,
+        events: update.events.map((event) => event.type),
         zones: expectedZones(update.view),
         total: cardsInPlay(update.view),
       }

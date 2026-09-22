@@ -4,8 +4,8 @@ import { preloadDeck } from '../cards/preload';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import type { BotSpeed, LogEntry } from '../client/debug';
 import type { AppClient, ClientUpdate, Intent } from '../client/types';
+import { NO_FLIGHTS, flightsFor, type Flights } from '../ui/anim/flights';
 import { sweepMs } from '../ui/anim/motion';
-import { zoneOrigin, type Origin } from '../ui/anim/origins';
 import { prefersReducedMotion } from '../ui/anim/reducedMotion';
 import { VIBRATE_ERROR, vibrate } from '../ui/haptics';
 import {
@@ -67,8 +67,8 @@ export interface AppState {
   celebrating: boolean;
   /** Кто сейчас действует и что сделал: подсветка рамки и подпись рядом с ней (спека §2c). */
   acting: ActingFx | null;
-  /** Откуда лететь картам, только что открытым из моего прикупа: его место на прошлом кадре. */
-  prykupOrigin: Origin | null;
+  /** Откуда какая карта прилетела в этом срезе: перелёт проигрывает приёмник (спека §2c.1). */
+  flights: Flights;
   makeClient: (setup: MatchSetup) => AppClient;
   preload: (deckSize: DeckSize) => Promise<void>;
   startMatch(setup: MatchSetup): Promise<void>;
@@ -122,10 +122,9 @@ export const useAppStore = create<AppState>()((set, get) => {
     // Отбой улетает отдельным слоем: в самой зоне стола всегда ровно карты среза.
     const swept = motionEnabled && !fresh ? sweptCards(prev, update) : [];
     const ms = sweepMs(speed, reduced);
-    // Прикуп исчезает вместе со срезом: снимаем его место с ещё не перерисованного экрана,
-    // чтобы открытые карты прилетели в руку оттуда, где прикуп лежал (спека §2c).
-    const opensPrykup = update.events.some((event) => event.type === 'prykupOpened' && event.playerId === update.view.me);
-    const prykupOrigin = motionEnabled && opensPrykup ? zoneOrigin(`prykup-${update.view.me}`) : null;
+    // Зоны исчезают вместе со срезом (прикуп ушёл в руку, карта — со стола): места карт снимаются
+    // с ещё не перерисованного экрана, и это начала перелётов этого хода (спека §2c.1).
+    const flights = motionEnabled && !fresh && !reduced ? flightsFor(prev, update) : NO_FLIGHTS;
     const captionMs = captionHoldMs(speed);
     const acting = actingFrom(update, ++actSeq, captionMs);
     stopCelebration();
@@ -137,7 +136,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms } : fresh ? null : sweep,
       celebrating: hold > 0,
       acting,
-      prykupOrigin,
+      flights,
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),
       allHands: debug.showAllHands ? (client?.debug?.allHands() ?? null) : null,
@@ -206,7 +205,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     sweep: null,
     celebrating: false,
     acting: null,
-    prykupOrigin: null,
+    flights: NO_FLIGHTS,
     makeClient: (setup) => createLocalMatch(setup),
     preload: (deckSize) => preloadDeck(deckSize),
 
@@ -228,7 +227,7 @@ export const useAppStore = create<AppState>()((set, get) => {
         sweep: null,
         celebrating: false,
         acting: null,
-        prykupOrigin: null,
+        flights: NO_FLIGHTS,
         marks: emptyMarks(update?.session.gameNumber ?? 0),
         selection: null,
         allHands: debug.showAllHands ? (client.debug?.allHands() ?? null) : null,
@@ -269,7 +268,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       stopSweep();
       stopActing();
       exposeView(null);
-      set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], sweep: null, celebrating: false, acting: null, prykupOrigin: null });
+      set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], sweep: null, celebrating: false, acting: null, flights: NO_FLIGHTS });
     },
 
     async restart() {

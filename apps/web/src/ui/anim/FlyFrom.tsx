@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useAppStore } from '../../store/appStore';
 import './anim.css';
 import { FLY_MS } from './motion';
@@ -7,6 +7,9 @@ import { zoneOrigin, type Origin } from './origins';
 export interface FlyFromProps {
   /** Откуда лететь: имя зоны (обмеряется на появлении) или уже снятая точка. null — не лететь. */
   from: string | Origin | null;
+  /** Обёртка перелёта — она же позиционируемый элемент зоны (карта стола, карта веера). */
+  className?: string;
+  style?: CSSProperties;
   children: ReactNode;
 }
 
@@ -16,7 +19,7 @@ export interface FlyFromProps {
  * вручную: в layout-эффекте (до первого кадра, без мигания) и проигрывается CSS-анимацией
  * только по transform; will-change снимается по `animationend` (спека §2a).
  */
-export function FlyFrom({ from, children }: FlyFromProps) {
+export function FlyFrom({ from, className, style, children }: FlyFromProps) {
   const enabled = useAppStore((s) => s.motionEnabled);
   const speed = useAppStore((s) => s.animSpeed);
   /** Перелёт — событие появления: меняться по дороге ему нечем. */
@@ -50,7 +53,7 @@ export function FlyFrom({ from, children }: FlyFromProps) {
   }, []);
 
   return (
-    <div ref={ref} className="fly-from">
+    <div ref={ref} className={`fly-from ${className ?? ''}`.trim()} style={style}>
       {children}
     </div>
   );

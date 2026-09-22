@@ -5,6 +5,7 @@ import { PlayingCard } from '../../cards/PlayingCard';
 import { ru } from '../../i18n/ru';
 import { useAppStore, type TableSweep } from '../../store/appStore';
 import { AnimatedCard } from '../anim/AnimatedCard';
+import { FlyFrom } from '../anim/FlyFrom';
 import { zoneProps } from './zones';
 
 /** Класс карты по месту в веере: нижнюю можно взять, верхнюю — бить. */
@@ -19,18 +20,22 @@ function fanClass(index: number, total: number): string {
  */
 export function TableFan({ table }: { table: TableCard[] }) {
   const sweep = useAppStore((s) => s.sweep);
+  const flights = useAppStore((s) => s.flights.cards);
   return (
     <div className="table-stage">
       <div className="table-fan" data-drop="table" aria-label={ru.table.tableZone} {...zoneProps('table', table.length)}>
         {table.map((t, i) => (
-          <AnimatedCard
+          // Обёртка перелёта — она же место карты в веере: карта прилетает из руки бьющего.
+          <FlyFrom
             key={cardKey(t.card)}
-            id={cardKey(t.card)}
+            from={flights[cardKey(t.card)] ?? null}
             className={fanClass(i, table.length)}
             style={{ '--i': i } as CSSProperties}
           >
-            <PlayingCard card={t.card} />
-          </AnimatedCard>
+            <AnimatedCard id={cardKey(t.card)} enter={!flights[cardKey(t.card)]}>
+              <PlayingCard card={t.card} />
+            </AnimatedCard>
+          </FlyFrom>
         ))}
       </div>
       {sweep && <SweptTable key={sweep.seq} sweep={sweep} />}

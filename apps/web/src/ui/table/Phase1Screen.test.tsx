@@ -61,11 +61,11 @@ describe('Phase1Screen', () => {
   });
 
   /**
-   * Перелёт «со стопки на чужую стопку» и «из колоды к стопке» держится на общем layoutId:
-   * один и тот же элемент переезжает между зонами. Если карта в стопке или в слоте вытянутой
-   * потеряет свой id, она начнёт телепортироваться (спека §2c).
+   * У каждой подвижной карты есть имя: по нему перелёт находит её место на прошлом кадре
+   * (`flights.ts`), а веер и стопка — саму карту. Потеряет имя — перелетать будет нечему,
+   * и карта снова начнёт телепортироваться (спека §2c.1).
    */
-  it('every card that can move carries its own layoutId', () => {
+  it('every card that can move carries its own name', () => {
     const state = phase1State({
       players: [{ id: 'A', stack: '6C 9H' }, { id: 'B', stack: '8D' }, { id: 'C', stack: 'KD' }],
       deck: 'QS JD',
@@ -73,7 +73,7 @@ describe('Phase1Screen', () => {
     });
     resetStore({ update: makeUpdate(state, 'A'), send, motionEnabled: true });
     const { container } = render(<Phase1Screen />);
-    const idOf = (zone: string) => container.querySelector(`[data-zone="${zone}"] [data-layout-id]`)?.getAttribute('data-layout-id');
+    const idOf = (zone: string) => container.querySelector(`[data-zone="${zone}"] [data-card]`)?.getAttribute('data-card');
     expect(idOf('stack-A')).toBe('9H');
     expect(idOf('stack-B')).toBe('8D');
     expect(idOf('stack-C')).toBe('KD');

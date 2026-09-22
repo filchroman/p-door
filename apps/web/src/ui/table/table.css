@@ -1,8 +1,17 @@
 /* Правило §2a: переходы и анимации — только transform и opacity. Подсветки и тени — слои .card::before/::after. */
-.table-screen { position: relative; flex: 1; display: grid; grid-template-rows: auto 1fr auto auto; min-height: 100dvh; }
+/*
+ * Размеры карт (спека §2c.1): крупная карта — своя рука, стол, колода и вытянутая; мелкая —
+ * стопки, рубашки и прикупы соперников. Те же числа лежат в ui/table/fan.ts: веер руки получает
+ * ширину и перекрытие оттуда, остальное берёт clamp() отсюда.
+ */
+.table-screen {
+  --card-big: clamp(84px, 22vw, 110px);
+  --card-small: clamp(64px, 17vw, 84px);
+  position: relative; flex: 1; display: grid; grid-template-rows: auto 1fr auto auto; min-height: 100dvh;
+}
 
 /* соперники и рамки */
-.opponents { display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-start; gap: 6px; padding: 10px 8px 0; }
+.opponents { display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-start; gap: 6px 4px; padding: 8px 6px 0; }
 .player-frame { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px; }
 .player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 3px #7cfc9a, 0 0 16px #7cfc9a, 0 3px 6px rgba(0, 0, 0, 0.45); }
 /* Кто сейчас действует — видно по рамке и подписи (спека §2c); подсветка перебивает «Ходит». */
@@ -37,11 +46,16 @@
 .player-name { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 0.85rem; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 .foul-badge { position: absolute; top: -6px; right: -6px; z-index: 2; display: grid; place-items: center; min-width: 20px; height: 20px; border: 2px solid #fff; border-radius: 10px; font: 700 0.75rem var(--font-body); color: #fff; background: var(--red); }
 .avatar-timer { position: absolute; left: 4px; right: 4px; bottom: -8px; }
-.player-extras { display: flex; align-items: center; gap: 4px; }
+.player-extras { display: flex; align-items: center; gap: 3px; }
 
 /* центр, моя зона, нижняя панель */
 .table-center { display: grid; place-items: center; min-height: 180px; padding: 8px; }
-.my-area { display: flex; justify-content: center; align-items: flex-end; gap: 12px; min-height: 130px; padding: 8px 8px 12px; }
+/*
+ * Своя зона занимает всю ширину колонки: прикуп фазы 2 лежит в углу поверх неё, иначе он съедал бы
+ * у веера руки ~110 px бюджета и крупные карты не поместились бы (спека §2c.1).
+ */
+.my-area { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 12px; min-height: 130px; padding: 8px 8px 12px; }
+.my-area > .prykup { position: absolute; right: 6px; top: 4px; z-index: 3; }
 .bottom-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
 .bottom-bar__info { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .bottom-bar .player-name { color: var(--ink); text-shadow: none; }
@@ -62,7 +76,7 @@
  * карты ничего не двигает. Раньше `.deck__pile` был строчным span нулевого размера — рубашки
  * рисовались от угла кнопки, и вытянутая карта оказывалась выше и правее колоды, по диагонали.
  */
-.deck-area { --deck-card-w: 60px; --deck-gap: 16px; display: flex; align-items: flex-start; gap: var(--deck-gap); }
+.deck-area { --deck-card-w: var(--card-big); --deck-gap: 14px; display: flex; align-items: flex-start; gap: var(--deck-gap); }
 .deck { position: relative; display: block; width: var(--deck-card-w); padding: 0; border: 0; background: none; cursor: pointer; }
 .deck:disabled { cursor: default; }
 .deck__pile { --card-w: var(--deck-card-w); display: block; position: relative; width: 100%; aspect-ratio: 2 / 3; }
@@ -74,11 +88,12 @@
 .pile { position: relative; display: flex; align-items: flex-end; gap: 6px; min-height: 44px; padding: 4px; border-radius: 10px; }
 .pile.is-targetable { outline: 2px dashed rgba(255, 255, 255, 0.55); cursor: pointer; }
 .pile.is-snap, .table-fan.is-snap { outline: 3px solid #ffd54f; }
-.pile__stack { --card-w: 52px; position: relative; width: var(--card-w); aspect-ratio: 2 / 3; }
+.pile__stack { --card-w: var(--card-small); position: relative; width: var(--card-w); aspect-ratio: 2 / 3; }
 .pile__count, .prykup__count, .opp-hand__count { font-weight: 700; font-size: 0.8rem; color: #fff; text-shadow: 0 1px 2px #000; }
-.prykup { display: flex; align-items: center; gap: 3px; }
-.prykup__fan { display: flex; }
-.prykup__fan .card { --card-w: 22px; }
+.prykup { display: flex; align-items: center; gap: 2px; }
+.prykup__fan { --card-w: var(--card-small); display: flex; }
+/* Своя стопка в фазе 1 — карта, которой я хожу: она читаемого размера, как рука. */
+.my-area .pile__stack { --card-w: var(--card-big); }
 .prykup__fan .card + .card { margin-left: calc(-1 * var(--overlap, 8px)); }
 .draggable { touch-action: none; cursor: grab; }
 .draggable.is-selected .card::after, .draggable.is-dragging .card::after { opacity: 1; }
@@ -94,24 +109,29 @@
 @keyframes vakhta-pulse { 50% { transform: scale(1.06); } }
 
 /* фаза 2 */
-.table-stage { position: relative; width: 140px; min-height: 220px; }
-.table-fan { position: relative; width: 140px; min-height: 220px; border-radius: 12px; }
+.table-stage { position: relative; width: calc(var(--card-big) + 24px); min-height: calc(var(--card-big) * 2.6); }
+.table-fan { position: relative; width: calc(var(--card-big) + 24px); min-height: calc(var(--card-big) * 2.6); border-radius: 12px; }
 /* Отбой: слой поверх зоны, живёт ровно свою анимацию — в зоне остаются только карты среза. */
 .table-sweep { position: absolute; inset: 0; pointer-events: none; perspective: 700px; }
-.table-sweep .table-card { will-change: transform; animation: table-sweep var(--sweep-ms, 300ms) var(--ease-out) both; }
-@keyframes table-sweep { to { transform: translate3d(260px, 0, 0) rotate(25deg); opacity: 0; } }
+.table-sweep .table-card { will-change: transform, opacity; animation: table-sweep var(--sweep-ms, 300ms) var(--ease-out) both; }
+/*
+ * Отбой улетает вбок и тает. Дальше колонки его не пускаем: прежние 260 px выносили карты за край
+ * экрана, страница получала горизонтальную прокрутку и нижняя панель дёргалась (спека §2c.1).
+ */
+@keyframes table-sweep { to { transform: translate3d(104px, -22px, 0) rotate(22deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .table-sweep .table-card { animation-name: table-sweep-fade; }
   @keyframes table-sweep-fade { to { opacity: 0; } }
 }
-.table-card { --card-w: 70px; position: absolute; left: calc(50% - 35px + var(--i) * 3px); bottom: calc(var(--i) * 24px); }
+.table-card { --card-w: var(--card-big); position: absolute; left: calc(var(--i) * 4px); bottom: calc(var(--i) * var(--card-w) * 0.32); }
 .table-card.is-top { z-index: 2; }
 .table-card.is-top .card::after { opacity: 1; }
 .table-card.is-bottom .card { --glow: #90caf9; }
 .table-card.is-bottom .card::after { opacity: 1; }
-.hand { display: flex; justify-content: center; align-items: flex-end; min-height: 120px; padding: 0 20px; }
+/* Поля веера (10px) и .my-area (8px) — те же 18px, что в HAND_MARGIN (fan.ts). */
+.hand { --card-w: var(--card-big); display: flex; justify-content: center; align-items: flex-end; width: 100%; min-height: calc(var(--card-big) * 1.5 + 26px); padding: 0 10px; }
 .hand-card {
-  --card-w: 68px; --lift: 0px;
+  --lift: 0px;
   position: relative; margin-left: calc(-1 * var(--overlap, 24px));
   transform: rotate(var(--angle, 0deg)) translateY(var(--lift));
   transform-origin: 50% 120%; transition: transform 0.18s var(--ease-out); touch-action: none; cursor: pointer;
@@ -122,14 +142,14 @@
 /* затемнение неподходящих — слой поверх карты, меняется только opacity */
 .hand-card::after { content: ''; position: absolute; inset: 0; border-radius: 6px; background: rgba(8, 16, 32, 0.45); opacity: 0; transition: opacity 0.18s var(--ease-out); pointer-events: none; }
 .hand-card.is-dim::after { opacity: 1; }
-.opp-hand { display: flex; align-items: center; gap: 4px; }
-.opp-hand__fan { display: flex; }
-.opp-hand__fan .card { --card-w: 26px; }
-.opp-hand__fan .card + .card { margin-left: calc(-1 * var(--overlap, 9px)); }
+.opp-hand { display: flex; align-items: center; gap: 3px; }
+.opp-hand__fan { --card-w: var(--card-small); display: flex; }
+/* Перелетающая рубашка лежит в обёртке .fly-from — отступ считается по любым детям веера. */
+.opp-hand__fan > * + * { margin-left: calc(-1 * var(--overlap, 9px)); }
 
 /* штраф */
 .modal__timer { display: block; margin-bottom: 8px; }
 .modal__text { font-weight: 700; }
 .penalty-hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-.penalty-card { --card-w: 56px; min-width: 44px; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.penalty-card { --card-w: var(--card-big); min-width: 44px; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
 .debtors { padding-left: 1.2em; }

@@ -8,7 +8,8 @@ import { AnimatedGroup } from '../anim/AnimatedGroup';
 import { FlipIn } from '../anim/FlipIn';
 import { FlyFrom } from '../anim/FlyFrom';
 import type { Origin } from '../anim/origins';
-import { fanOverlap } from './fan';
+import { useViewportWidth } from '../useViewport';
+import { bigCardWidth, fanAngle, handBudget, handFan } from './fan';
 import { legalFromView } from './legal';
 import { useDrag } from './useDrag';
 import { zoneProps } from './zones';
@@ -19,8 +20,6 @@ import { zoneProps } from './zones';
  * иначе в обычной партии — 3 игрока, 36 карт, ~10 карт на руке — карта не летела бы никуда.
  */
 export const MAX_ANIMATED_HAND = 6;
-const HAND_CARD = 68;
-const HAND_WIDTH = 300;
 const isTable = (id: string) => id === 'table';
 
 /** Строковые ключи — стабильные значения селекторов: чужой ход их не меняет. */
@@ -84,8 +83,12 @@ export const Hand = memo(function Hand() {
   const codes = handKey ? handKey.split(' ') : [];
   const legal = new Set(legalKey ? legalKey.split(' ') : []);
   const big = codes.length > MAX_ANIMATED_HAND;
-  const spread = Math.min(8, 60 / Math.max(codes.length, 1));
-  const style = { '--overlap': `${fanOverlap(codes.length, HAND_CARD, HAND_WIDTH)}px` } as CSSProperties;
+  const viewport = useViewportWidth();
+  const cardWidth = bigCardWidth(viewport);
+  // Сначала разворот и запас под поворот крайних карт, и только остаток бюджета — под сами карты:
+  // иначе с 7 карт крайние вылезают за экран и страница получает прокрутку (спека §2c.1).
+  const fan = handFan(codes.length, cardWidth, handBudget(viewport));
+  const style = { '--card-w': `${cardWidth}px`, '--overlap': `${fan.overlap}px` } as CSSProperties;
   return (
     <AnimatedGroup
       animate={big}
@@ -101,7 +104,7 @@ export const Hand = memo(function Hand() {
           code={code}
           legal={legal.has(code)}
           dim={myTurn && !legal.has(code)}
-          angle={(i - (codes.length - 1) / 2) * spread}
+          angle={fanAngle(i, codes.length)}
           myTurn={myTurn}
           flipIn={flipIn}
           from={prykupOrigin}

@@ -1,0 +1,94 @@
+/* Правило §2a: переходы и анимации — только transform и opacity. Подсветки и тени — слои .card::before/::after. */
+.table-screen { position: relative; flex: 1; display: grid; grid-template-rows: auto 1fr auto auto; min-height: 100dvh; }
+
+/* соперники и рамки */
+.opponents { display: flex; flex-wrap: wrap; justify-content: space-around; align-items: flex-start; gap: 6px; padding: 10px 8px 0; }
+.player-frame { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px; }
+.player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 3px #7cfc9a, 0 0 16px #7cfc9a, 0 3px 6px rgba(0, 0, 0, 0.45); }
+.player-frame.is-out { opacity: 0.6; }
+.plaque-slot { min-height: 20px; }
+.plaque--caught { color: #fff; border-color: #1b5e20; background: linear-gradient(#81c784, #2e7d32); }
+.avatar-shake, .avatar-still { width: 100%; height: 100%; }
+.player-name { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 0.85rem; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+.foul-badge { position: absolute; top: -6px; right: -6px; z-index: 2; display: grid; place-items: center; min-width: 20px; height: 20px; border: 2px solid #fff; border-radius: 10px; font: 700 0.75rem var(--font-body); color: #fff; background: var(--red); }
+.avatar-timer { position: absolute; left: 4px; right: 4px; bottom: -8px; }
+.player-extras { display: flex; align-items: center; gap: 4px; }
+
+/* центр, моя зона, нижняя панель */
+.table-center { display: grid; place-items: center; min-height: 180px; padding: 8px; }
+.my-area { display: flex; justify-content: center; align-items: flex-end; gap: 12px; min-height: 130px; padding: 8px 8px 12px; }
+.bottom-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+.bottom-bar__info { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.bottom-bar .player-name { color: var(--ink); text-shadow: none; }
+.trump-badge { display: flex; align-items: center; gap: 4px; }
+.trump-badge__card { display: block; width: 30px; height: 45px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+.trump-badge__suit { font-size: 1.5rem; line-height: 1; color: #1d1d1f; }
+.trump-badge__suit.is-red { color: var(--red); }
+.vidbiy-counter { font: 700 0.85rem var(--font-body); color: #3a3a3a; }
+
+/* карты-заглушки под верхней картой стопки и в колоде */
+.card--blank .card__img { background: linear-gradient(#fffdf7, #efe8d8); }
+.stack-layer { position: absolute; left: 0; top: 0; }
+
+/* фаза 1 */
+.deck-area { display: flex; align-items: center; gap: 22px; }
+.deck { position: relative; min-width: 64px; min-height: 96px; padding: 0; border: 0; background: none; cursor: pointer; }
+.deck:disabled { cursor: default; }
+.deck__pile { --card-w: 60px; position: relative; width: 60px; aspect-ratio: 2 / 3; }
+.deck:not(:disabled) .deck__pile .stack-layer:last-child .card { --glow: rgba(255, 255, 255, 0.75); }
+.deck:not(:disabled) .deck__pile .stack-layer:last-child .card::after { opacity: 1; }
+.deck__count { position: absolute; right: -10px; bottom: -10px; z-index: 2; min-width: 26px; padding: 2px 6px; border-radius: 13px; font-weight: 700; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
+.drawn-slot { --card-w: 60px; display: grid; place-items: center; min-width: 64px; min-height: 96px; }
+.pile { position: relative; display: flex; align-items: flex-end; gap: 6px; min-height: 44px; padding: 4px; border-radius: 10px; }
+.pile.is-targetable { outline: 2px dashed rgba(255, 255, 255, 0.55); cursor: pointer; }
+.pile.is-snap, .table-fan.is-snap { outline: 3px solid #ffd54f; }
+.pile__stack { --card-w: 52px; position: relative; width: var(--card-w); aspect-ratio: 2 / 3; }
+.pile__count, .prykup__count, .opp-hand__count { font-weight: 700; font-size: 0.8rem; color: #fff; text-shadow: 0 1px 2px #000; }
+.prykup { display: flex; align-items: center; gap: 3px; }
+.prykup__fan { display: flex; }
+.prykup__fan .card { --card-w: 22px; }
+.prykup__fan .card + .card { margin-left: calc(-1 * var(--overlap, 8px)); }
+.draggable { touch-action: none; cursor: grab; }
+.draggable.is-selected .card::after, .draggable.is-dragging .card::after { opacity: 1; }
+.draggable.is-dragging { position: relative; z-index: 40; cursor: grabbing; --shadow-opacity: 1; }
+.vakhta-btn {
+  position: absolute; right: 14px; bottom: 150px; z-index: 50;
+  width: 96px; height: 96px; border: 4px solid #fff; border-radius: 50%;
+  font: 900 1.05rem var(--font-body); letter-spacing: 0.03em; color: #fff;
+  background: radial-gradient(circle at 35% 30%, #ff8a80, #d50000 55%, #8e0000);
+  box-shadow: 0 6px 0 #5d0000, 0 10px 20px rgba(0, 0, 0, 0.5);
+  animation: vakhta-pulse 1s ease-in-out infinite; cursor: pointer;
+}
+@keyframes vakhta-pulse { 50% { transform: scale(1.06); } }
+
+/* фаза 2 */
+.table-fan { position: relative; width: 140px; min-height: 220px; border-radius: 12px; }
+.table-card { --card-w: 70px; position: absolute; left: calc(50% - 35px + var(--i) * 3px); bottom: calc(var(--i) * 24px); }
+.table-card.is-top { z-index: 2; }
+.table-card.is-top .card::after { opacity: 1; }
+.table-card.is-bottom .card { --glow: #90caf9; }
+.table-card.is-bottom .card::after { opacity: 1; }
+.hand { display: flex; justify-content: center; align-items: flex-end; min-height: 120px; padding: 0 20px; }
+.hand-card {
+  --card-w: 68px; --lift: 0px;
+  position: relative; margin-left: calc(-1 * var(--overlap, 24px));
+  transform: rotate(var(--angle, 0deg)) translateY(var(--lift));
+  transform-origin: 50% 120%; transition: transform 0.18s var(--ease-out); touch-action: none; cursor: pointer;
+}
+.hand-card:first-child { margin-left: 0; }
+.hand-card.is-legal { --lift: -16px; --shadow-opacity: 1; }
+.hand-card.is-legal .card::after { opacity: 1; }
+/* затемнение неподходящих — слой поверх карты, меняется только opacity */
+.hand-card::after { content: ''; position: absolute; inset: 0; border-radius: 6px; background: rgba(8, 16, 32, 0.45); opacity: 0; transition: opacity 0.18s var(--ease-out); pointer-events: none; }
+.hand-card.is-dim::after { opacity: 1; }
+.opp-hand { display: flex; align-items: center; gap: 4px; }
+.opp-hand__fan { display: flex; }
+.opp-hand__fan .card { --card-w: 26px; }
+.opp-hand__fan .card + .card { margin-left: calc(-1 * var(--overlap, 9px)); }
+
+/* штраф */
+.modal__timer { display: block; margin-bottom: 8px; }
+.modal__text { font-weight: 700; }
+.penalty-hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.penalty-card { --card-w: 56px; min-width: 44px; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.debtors { padding-left: 1.2em; }

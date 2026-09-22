@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CAPTION_MIN_MS, CAPTION_MS, MIN_STEP_MS, STEP_MS, STEP_PAUSE_MS, UpdatePump, animSpeedFor, captionHoldMs, stepDelay } from './updatePump';
-import { FLY_MS } from '../ui/anim/motion';
+import { CAPTION_MIN_MS, CAPTION_MS, CATCHUP_PAUSE_MS, MIN_STEP_MS, STEP_MS, STEP_PAUSE_MS, UpdatePump, animSpeedFor, captionHoldMs, stepDelay } from './updatePump';
+import { FLY_MIN_MS, FLY_MS, flyMs } from '../ui/anim/motion';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -38,10 +38,14 @@ describe('UpdatePump', () => {
     expect(animSpeedFor(30)).toBe(4);
   });
 
-  /** Спека §2c: действие видно не меньше, чем длится его анимация — иначе ходы наложатся. */
-  it('never shows a step for less than its own animation, and always leaves a gap after it', () => {
+  /**
+   * Спека §2c: действие видно не меньше, чем длится его анимация — иначе ходы наложатся, а карта
+   * пропадёт из воздуха вместе с перерисованным приёмником (это и резало перелёты до 165 мс).
+   */
+  it('never shows a step for less than its own flight, and always leaves a gap after it', () => {
     for (let backlog = 1; backlog <= 30; backlog++) {
-      expect(stepDelay(backlog)).toBeGreaterThan(FLY_MS / animSpeedFor(backlog));
+      expect(stepDelay(backlog)).toBeGreaterThan(flyMs(animSpeedFor(backlog)));
+      expect(stepDelay(backlog)).toBeGreaterThanOrEqual(FLY_MIN_MS + CATCHUP_PAUSE_MS);
     }
   });
 

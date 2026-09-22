@@ -26,6 +26,7 @@ export interface PlayerView {
   players: PublicPlayer[];
   myHand: Card[];
   myDebts: { to: PlayerId; count: number }[];
+  debts: { from: PlayerId; to: PlayerId; count: number }[]; // все штрафные долги — открытая информация
   vakhtaOpen: boolean;
   result: GameResult | null;
 }
@@ -54,6 +55,7 @@ export function viewFor(s: GameState, playerId: PlayerId, now: number): PlayerVi
     })),
     myHand: me ? [...me.hand] : [],
     myDebts: s.debts.filter((d) => d.from === playerId && d.count > 0).map((d) => ({ to: d.to, count: d.count })),
+    debts: s.debts.filter((d) => d.count > 0).map((d) => ({ from: d.from, to: d.to, count: d.count })),
     vakhtaOpen: vakhtaPhase && s.watches.some((w) => w.playerId !== playerId && isWatchOpen(w, now)),
     result: s.result,
   };

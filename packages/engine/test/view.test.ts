@@ -29,6 +29,27 @@ describe('viewFor', () => {
   });
 });
 
+describe('viewFor debts', () => {
+  it('shows all outstanding debts to everyone and my own ones separately', () => {
+    const s = phase2State({ players: [{ id: 'A', hand: '7H' }, { id: 'B', hand: '8C' }, { id: 'C', hand: '9C JD' }], trump: 'D', turn: 'A' });
+    s.phase = 'penalty';
+    s.debts = [
+      { from: 'C', to: 'A', count: 2 },
+      { from: 'A', to: 'B', count: 0 },
+      { from: 'B', to: 'A', count: 1 },
+    ];
+    const v = viewFor(s, 'A', 0);
+    expect(v.debts).toEqual([
+      { from: 'C', to: 'A', count: 2 },
+      { from: 'B', to: 'A', count: 1 },
+    ]);
+    expect(v.myDebts).toEqual([]);
+    expect(viewFor(s, 'C', 0).myDebts).toEqual([{ to: 'A', count: 2 }]);
+    v.debts[0].count = 99;
+    expect(s.debts[0].count).toBe(2);
+  });
+});
+
 describe('legalMoves', () => {
   it('lists cards that beat the top, and take', () => {
     const s = phase2State({ players: [{ id: 'A', hand: 'JH 8H 6D AS' }, { id: 'B', hand: 'KC' }], trump: 'D', turn: 'A', table: [['9H', 'B']] });

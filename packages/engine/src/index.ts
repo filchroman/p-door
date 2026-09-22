@@ -8,5 +8,6 @@ export { viewFor, type PlayerView, type PublicPlayer } from './view';
 export { legalMoves, type LegalMoves } from './legal';
 export { autoAction } from './auto';
 export * from './session';
-export { VAKHTA_GRACE_MS } from './vakhta';
+export { VAKHTA_GRACE_MS, isWatchOpen } from './vakhta';
+export { nextDeadline, pendingPlayers } from './schedule';
 export { STALL_REPEATS } from './phase2';

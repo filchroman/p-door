@@ -21,6 +21,8 @@ export interface PlayerView {
   deckCount: number;
   drawn: Card | null;
   trump: Suit | null;
+  /** Карта, чья масть стала козырной: её, а не произвольную, показывает значок козыря (спека §2.2, §2c). */
+  trumpCard: Card | null;
   table: TableCard[];
   discardCount: number;
   players: PublicPlayer[];
@@ -42,6 +44,7 @@ export function viewFor(s: GameState, playerId: PlayerId, now: number): PlayerVi
     deckCount: s.deck.length,
     drawn: s.drawn,
     trump: s.trump,
+    trumpCard: s.trumpCard,
     table: s.table.map((t) => ({ card: t.card, by: t.by })),
     discardCount: s.discard.length,
     players: s.players.map((p) => ({

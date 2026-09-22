@@ -19,7 +19,7 @@ describe('full event sequences', () => {
     const last = apply(s, 'B', { type: 'draw' }, 1000);
     expect(eventsOf(last)).toEqual([
       { type: 'drew', playerId: 'B', card: c('JS') },
-      { type: 'trump', suit: 'D', card: c('JS') },
+      { type: 'trump', suit: 'D', card: c('QD') },
       { type: 'phase', phase: 'penalty' },
     ]);
     if (!last.ok) return;

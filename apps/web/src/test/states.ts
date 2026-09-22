@@ -23,6 +23,7 @@ function baseState(deckSize: DeckSize): GameState {
     drawHistory: [],
     openDeal: [],
     trump: null,
+    trumpCard: null,
     lastCardDrawerId: null,
     previousWinnerId: null,
     watches: [],
@@ -64,6 +65,7 @@ export function phase1State(o: {
 export function penaltyState(o: {
   players: { id: string; hand: string; prykup?: string; fouls?: number }[];
   trump: Suit;
+  trumpCard?: string;
   debts?: PenaltyDebt[];
   watches?: Watch[];
   lastCardDrawerId?: string;
@@ -75,6 +77,7 @@ export function penaltyState(o: {
     phase: 'penalty',
     turn: o.lastCardDrawerId ?? players[0].id,
     trump: o.trump,
+    trumpCard: o.trumpCard ? c(o.trumpCard) : null,
     lastCardDrawerId: o.lastCardDrawerId ?? players[0].id,
     debts: o.debts ?? [],
     watches: o.watches ?? [],
@@ -86,6 +89,7 @@ export function penaltyState(o: {
 export function phase2State(o: {
   players: { id: string; hand: string; prykup?: string; out?: boolean }[];
   trump: Suit;
+  trumpCard?: string;
   turn: string;
   table?: [string, string][];
   discard?: string;
@@ -97,6 +101,7 @@ export function phase2State(o: {
     phase: 'phase2',
     turn: o.turn,
     trump: o.trump,
+    trumpCard: o.trumpCard ? c(o.trumpCard) : null,
     table: (o.table ?? []).map(([card, by]) => ({ card: c(card), by })),
     discard: cs(o.discard ?? ''),
     outOrder: players.filter((p) => p.out).map((p) => p.id),

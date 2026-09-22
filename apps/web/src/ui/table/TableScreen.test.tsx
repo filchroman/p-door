@@ -9,6 +9,8 @@ import { TableScreen } from './TableScreen';
 const state = phase2State({
   players: [{ id: 'A', hand: '6C 7C' }, { id: 'B', hand: '8C' }, { id: 'C', hand: '', out: true }, { id: 'D', hand: '' }],
   trump: 'H',
+  // Последней картой колоды была пика — козырной масть сделала 9♥, её и показывает значок.
+  trumpCard: '9H',
   turn: 'B',
   table: [['9H', 'A']],
 });
@@ -44,7 +46,8 @@ describe('TableScreen', () => {
 
   it('shows trump and the k/N counter in the bottom bar, and the total of cards in play', () => {
     const { container } = render(<TableScreen center={null} mine={null} action={null} />);
-    expect(screen.getByRole('img', { name: 'Козырь: чирва' })).toBeInTheDocument();
+    const badge = screen.getByRole('img', { name: 'Козырь: чирва' });
+    expect(badge.querySelector('.trump-badge__card')).toHaveAttribute('src', expect.stringContaining('9H'));
     expect(screen.getByText('1/3 до отбоя')).toBeInTheDocument();
     expect(container.querySelector('.table-screen')).toHaveAttribute('data-total', '36');
   });

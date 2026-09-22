@@ -24,20 +24,17 @@ describe('store derive', () => {
     expect(eventToasts(update)).toEqual([{ text: ru.toast.stall.endGame, tone: 'info' }]);
   });
 
-  it('remembers who took, who beat, trump card and opened prykups', () => {
+  it('remembers who took, who beat and opened prykups', () => {
     let marks = nextMarks(emptyMarks(1), makeUpdate(p2, 'A', {
       events: [
-        { type: 'trump', suit: 'D', card: c('9D') },
         { type: 'played', playerId: 'A', card: c('6C') },
         { type: 'tookBottom', playerId: 'B', card: c('6C') },
       ],
     }));
     expect(marks.acts).toEqual({ A: 'beat', B: 'took' });
-    expect(marks.trumpCard).toEqual(c('9D'));
     marks = nextMarks(marks, makeUpdate(p2, 'A', { events: [{ type: 'vidbiy', closerId: 'C' }, { type: 'prykupOpened', playerId: 'C' }] }));
     expect(marks.acts).toEqual({});
     expect(marks.opened).toEqual(['C']);
-    expect(marks.trumpCard).toEqual(c('9D'));
     const kept = nextMarks(marks, makeUpdate(p2, 'A'));
     expect(kept).toBe(marks);
     const next = nextMarks(marks, makeUpdate(p2, 'A', { session: { ...makeUpdate(p2, 'A').session, gameNumber: 2 } }));

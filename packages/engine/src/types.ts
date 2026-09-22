@@ -51,6 +51,8 @@ export interface GameState {
   drawHistory: Card[];
   openDeal: Card[];
   trump: Suit | null;
+  /** Карта, чья масть стала козырной (не обязательно последняя вытянутая — пика козырем не бывает). */
+  trumpCard: Card | null;
   lastCardDrawerId: PlayerId | null;
   previousWinnerId: PlayerId | null;
   watches: Watch[];
@@ -81,7 +83,7 @@ export type GameEvent =
   | { type: 'movedTop'; from: PlayerId; to: PlayerId; card: Card }
   | { type: 'kept'; playerId: PlayerId; card: Card }
   | { type: 'vakhta'; callerId: PlayerId; fouled: PlayerId[] }
-  | { type: 'trump'; suit: Suit; card: Card }
+  | { type: 'trump'; suit: Suit; card: Card | null }
   | { type: 'phase'; phase: Phase }
   | { type: 'penaltyGiven'; from: PlayerId; to: PlayerId }
   | { type: 'played'; playerId: PlayerId; card: Card }

@@ -80,8 +80,10 @@ function placeDrawn(s: GameState, p: PlayerState, to: PlayerId, now: number, eve
 function finishPhase1(s: GameState, drawer: PlayerState, lastCard: Card, events: GameEvent[]): void {
   drawer.stack.push(lastCard);
   s.lastCardDrawerId = drawer.id;
-  s.trump = determineTrump(lastCard, s.drawHistory.slice(0, -1), s.openDeal);
-  events.push({ type: 'trump', suit: s.trump, card: lastCard });
+  const trump = determineTrump(lastCard, s.drawHistory.slice(0, -1), s.openDeal);
+  s.trump = trump.suit;
+  s.trumpCard = trump.card;
+  events.push({ type: 'trump', suit: trump.suit, card: trump.card });
   for (const w of s.watches) w.othersActed = true;
   for (const pl of s.players) {
     pl.hand = pl.stack;

@@ -27,6 +27,23 @@ describe('viewFor', () => {
     expect(vb.vakhtaOpen).toBe(true);
     expect(viewFor(s, 'A', 0).vakhtaOpen).toBe(false);
   });
+
+  it('exposes the card whose suit became trump, not the last card drawn', () => {
+    // Последняя карта колоды — пика JS, козырной масть делает предыдущая QD.
+    let s = phase1State({ players: [{ id: 'A', stack: '9H' }, { id: 'B', stack: '7C' }], deck: 'QD JS' });
+    s = act(s, 'A', { type: 'draw' }, 0);
+    s = act(s, 'A', { type: 'placeDrawn', to: 'A' }, 0);
+    s = act(s, 'B', { type: 'draw' }, 1000);
+    const v = viewFor(s, 'A', 1000);
+    expect(v.trump).toBe('D');
+    expect(v.trumpCard).toEqual(c('QD'));
+  });
+
+  it('has no trump card before the last draw', () => {
+    const v = viewFor(phase1State({ players: [{ id: 'A', stack: '9H' }, { id: 'B', stack: '7C' }], deck: 'QD JS' }), 'A', 0);
+    expect(v.trump).toBeNull();
+    expect(v.trumpCard).toBeNull();
+  });
 });
 
 describe('viewFor debts', () => {

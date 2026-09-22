@@ -55,6 +55,7 @@ export function createGame(setup: GameSetup): GameState {
     drawHistory: [],
     openDeal,
     trump: null,
+    trumpCard: null,
     lastCardDrawerId: null,
     previousWinnerId: setup.previousWinnerId,
     watches: [],

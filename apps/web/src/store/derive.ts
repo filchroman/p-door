@@ -68,12 +68,11 @@ export interface RecentMarks {
   caught: CaughtFx | null;
   /** Кто когда вышел — ключ ленты «Вышел!» и конфетти. */
   outFx: Record<PlayerId, OutFx>;
-  trumpCard: Card | null;
   opened: PlayerId[];
 }
 
 export function emptyMarks(gameNumber: number): RecentMarks {
-  return { gameNumber, seq: 0, acts: {}, vakhtaBy: null, vakhtaCaught: false, caught: null, outFx: {}, trumpCard: null, opened: [] };
+  return { gameNumber, seq: 0, acts: {}, vakhtaBy: null, vakhtaCaught: false, caught: null, outFx: {}, opened: [] };
 }
 
 export function playerName(update: ClientUpdate, id: PlayerId): string {
@@ -83,7 +82,7 @@ export function playerName(update: ClientUpdate, id: PlayerId): string {
 export function nextMarks(prev: RecentMarks, update: ClientUpdate, now: number = Date.now()): RecentMarks {
   const base = prev.gameNumber === update.session.gameNumber ? prev : emptyMarks(update.session.gameNumber);
   if (update.events.length === 0) return base;
-  let { seq, caught, outFx, trumpCard } = base;
+  let { seq, caught, outFx } = base;
   let acts = { ...base.acts };
   let vakhtaBy: PlayerId | null = null;
   let vakhtaCaught = false;
@@ -112,15 +111,12 @@ export function nextMarks(prev: RecentMarks, update: ClientUpdate, now: number =
         seq++;
         outFx = { ...outFx, [event.playerId]: { seq, at: now } };
         break;
-      case 'trump':
-        trumpCard = event.card;
-        break;
       case 'prykupOpened':
         opened.push(event.playerId);
         break;
     }
   }
-  return { gameNumber: base.gameNumber, seq, acts, vakhtaBy, vakhtaCaught, caught, outFx, trumpCard, opened };
+  return { gameNumber: base.gameNumber, seq, acts, vakhtaBy, vakhtaCaught, caught, outFx, opened };
 }
 
 /**

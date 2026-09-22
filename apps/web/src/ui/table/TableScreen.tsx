@@ -53,7 +53,7 @@ export function TableScreen({ center, mine, action, opponentExtras }: TableScree
         action={action}
         {...frame(me)}
         trump={view.trump}
-        trumpCard={marks.trumpCard}
+        trumpCard={view.trumpCard}
         counter={view.phase === 'phase2' ? ru.table.toVidbiy(view.table.length, activeCount(view)) : null}
       />
     </div>

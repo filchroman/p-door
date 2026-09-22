@@ -1,7 +1,7 @@
 import { applyPhase1 } from './phase1';
 import { findPlayer } from './state';
 import type { Action, ApplyResult, ErrorCode, GameEvent, GameState, PlayerId } from './types';
-import { isWatchOpen } from './vakhta';
+import { callVakhta, isWatchOpen } from './vakhta';
 
 export function apply(state: GameState, playerId: PlayerId, action: Action, now: number): ApplyResult {
   if (state.phase === 'over') return { ok: false, error: 'wrong_phase' };
@@ -17,6 +17,7 @@ function dispatch(s: GameState, playerId: PlayerId, action: Action, now: number,
   if (action.type === 'tick') return null;
   const p = findPlayer(s, playerId);
   if (!p) return 'unknown_player';
+  if (action.type === 'callVakhta') return callVakhta(s, p, now, events);
   if (s.phase === 'phase1') return applyPhase1(s, p, action, now, events);
   return 'wrong_phase';
 }

@@ -1,4 +1,5 @@
-import type { GameState, PlayerId, Watch } from './types';
+import { findPlayer } from './state';
+import type { ErrorCode, GameEvent, GameState, PlayerId, PlayerState, Watch } from './types';
 
 export const VAKHTA_GRACE_MS = 3000;
 
@@ -22,4 +23,21 @@ export function addFoulDebts(s: GameState, offenderId: PlayerId, count: number):
     if (debt) debt.count += count;
     else s.debts.push({ from: p.id, to: offenderId, count });
   }
+}
+
+export function callVakhta(s: GameState, caller: PlayerState, now: number, events: GameEvent[]): ErrorCode | null {
+  if (s.phase !== 'phase1' && s.phase !== 'penalty') return 'wrong_phase';
+  const open = s.watches.filter((w) => w.playerId !== caller.id && isWatchOpen(w, now));
+  if (open.length === 0) return 'nothing_to_call';
+  const fouled: PlayerId[] = [];
+  for (const w of open) {
+    w.called = true;
+    if (!w.violated) continue;
+    const offender = findPlayer(s, w.playerId)!;
+    offender.fouls++;
+    if (!fouled.includes(offender.id)) fouled.push(offender.id);
+    if (s.phase === 'penalty') addFoulDebts(s, offender.id, 1);
+  }
+  events.push({ type: 'vakhta', callerId: caller.id, fouled });
+  return null;
 }

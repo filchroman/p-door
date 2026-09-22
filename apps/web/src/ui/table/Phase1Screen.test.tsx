@@ -85,6 +85,35 @@ describe('Phase1Screen', () => {
     expect(screen.getByTestId('pile-B')).not.toHaveClass('is-snap');
   });
 
+  it('a non-primary button neither drags nor plays', () => {
+    show(phase1State({ players: [{ id: 'A', stack: '7H' }, { id: 'B', stack: '9C' }], deck: 'QH 8C', drawn: 'TS' }));
+    rect(screen.getByTestId('pile-A'), 0, 500);
+    rect(screen.getByTestId('pile-B'), 0, 0);
+    const card = screen.getByRole('button', { name: '10♠' });
+    fireEvent.pointerDown(card, { clientX: 150, clientY: 250, pointerId: 1, button: 2 });
+    fireEvent.pointerMove(card, { clientX: 100, clientY: 120, pointerId: 1 });
+    expect(card).not.toHaveClass('is-dragging');
+    expect(card.style.transform).toBe('');
+    expect(screen.getByTestId('pile-B')).not.toHaveClass('is-snap');
+    fireEvent.pointerUp(card, { clientX: 100, clientY: 120, pointerId: 1, button: 2 });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('a lost pointer capture puts the card back instead of leaving it mid-flight', () => {
+    show(phase1State({ players: [{ id: 'A', stack: '7H' }, { id: 'B', stack: '9C' }], deck: 'QH 8C', drawn: 'TS' }));
+    rect(screen.getByTestId('pile-A'), 0, 500);
+    rect(screen.getByTestId('pile-B'), 0, 0);
+    const card = screen.getByRole('button', { name: '10♠' });
+    fireEvent.pointerDown(card, { clientX: 150, clientY: 250, pointerId: 1 });
+    fireEvent.pointerMove(card, { clientX: 100, clientY: 120, pointerId: 1 });
+    expect(card).toHaveClass('is-dragging');
+    fireEvent.lostPointerCapture(card, { pointerId: 1 });
+    expect(card).not.toHaveClass('is-dragging');
+    expect(card.style.transform).toBe('');
+    expect(screen.getByTestId('pile-B')).not.toHaveClass('is-snap');
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('a drag released far from every stack sends nothing', () => {
     show(phase1State({ players: [{ id: 'A', stack: '7H' }, { id: 'B', stack: '9C' }], deck: 'QH 8C', drawn: 'TS' }));
     rect(screen.getByTestId('pile-A'), 0, 500);

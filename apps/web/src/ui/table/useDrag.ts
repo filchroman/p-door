@@ -1,5 +1,5 @@
 import { useRef, useState, type MouseEvent, type PointerEvent } from 'react';
-import { nearestDropZone } from './snap';
+import { dropZones, nearestZone, type DropZone } from './snap';
 
 export const DRAG_THRESHOLD_PX = 6;
 
@@ -18,6 +18,8 @@ export function useDrag({ onTap, onDrop, accept }: DragOptions) {
   const moved = useRef(false);
   const node = useRef<HTMLElement | null>(null);
   const snap = useRef<HTMLElement | null>(null);
+  /** Зоны обмеряются один раз на перетаскивание, а не на каждое движение пальца. */
+  const zones = useRef<DropZone[]>([]);
   const [dragging, setDragging] = useState(false);
 
   const setSnap = (zone: HTMLElement | null) => {
@@ -34,12 +36,15 @@ export function useDrag({ onTap, onDrop, accept }: DragOptions) {
       el.style.willChange = '';
     }
     setSnap(null);
+    zones.current = [];
     start.current = null;
     setDragging(false);
   };
 
   const handlers = {
     onPointerDown(e: PointerEvent<HTMLElement>) {
+      // Только основная кнопка: правая и средняя карту не тащат и не разыгрывают.
+      if (e.button !== 0) return;
       start.current = { x: e.clientX, y: e.clientY };
       moved.current = false;
       node.current = e.currentTarget;
@@ -59,12 +64,14 @@ export function useDrag({ onTap, onDrop, accept }: DragOptions) {
         if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
         moved.current = true;
         el.style.willChange = 'transform';
+        zones.current = dropZones(el, accept);
         setDragging(true);
       }
       el.style.transform = `translate(${dx}px, ${dy}px)`;
-      setSnap(nearestDropZone(e.clientX, e.clientY, el, accept));
+      setSnap(nearestZone(zones.current, e.clientX, e.clientY));
     },
-    onPointerUp() {
+    onPointerUp(e: PointerEvent<HTMLElement>) {
+      if (e.button !== 0) return;
       const wasDrag = moved.current;
       const target = snap.current?.dataset.drop ?? null;
       release();
@@ -72,6 +79,10 @@ export function useDrag({ onTap, onDrop, accept }: DragOptions) {
     },
     onPointerCancel() {
       moved.current = false;
+      release();
+    },
+    /** Захват указателя потерян (системный жест, смена фокуса) — карта возвращается на место. */
+    onLostPointerCapture() {
       release();
     },
     onClick(e: MouseEvent<HTMLElement>) {

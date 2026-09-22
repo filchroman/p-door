@@ -88,6 +88,7 @@ export function phase2State(o: {
   trump: Suit;
   turn: string;
   table?: [string, string][];
+  discard?: string;
 }): GameState {
   const players = o.players.map((p) => player(p.id, { hand: cs(p.hand), prykup: cs(p.prykup ?? ''), out: p.out ?? false }));
   return {
@@ -97,6 +98,7 @@ export function phase2State(o: {
     turn: o.turn,
     trump: o.trump,
     table: (o.table ?? []).map(([card, by]) => ({ card: c(card), by })),
+    discard: cs(o.discard ?? ''),
     outOrder: players.filter((p) => p.out).map((p) => p.id),
   };
 }

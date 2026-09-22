@@ -127,9 +127,12 @@ export function nextMarks(prev: RecentMarks, update: ClientUpdate, now: number =
  * Карты, которые этот срез отправил в отбой: стол прошлого среза плюс сыгранное в этом же срезе
  * (движок кладёт карту на стол и тут же закрывает отбой). Взятая нижняя сюда не попадает —
  * она переезжает в руку одним элементом по общему layoutId, а не улетает.
+ * Верим не событию, а отбою: вынужденный отбой на уже пустом столе (разбор затора) ничего
+ * не кладёт, и тогда улетать нечему — иначе взятая нижняя улетала бы, лёжа в руке.
  */
 export function sweptCards(prev: ClientUpdate | null, update: ClientUpdate): Card[] {
   if (!update.events.some((event) => event.type === 'vidbiy')) return [];
+  if (update.view.discardCount <= (prev?.view.discardCount ?? 0)) return [];
   const before = prev ? prev.view.table.map((t) => t.card) : [];
   const played = update.events.flatMap((event) => (event.type === 'played' ? [event.card] : []));
   return [...before, ...played];

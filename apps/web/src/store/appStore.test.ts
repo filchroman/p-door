@@ -65,11 +65,18 @@ describe('app store', () => {
       trump: 'D',
       turn: 'p0',
     });
+    // Отбой вырос на те самые две карты: слой полёта верит отбою, а не самому событию.
+    const closed = phase2State({
+      players: [{ id: 'p0', hand: '7H' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      trump: 'D',
+      turn: 'p0',
+      discard: '6D 7D',
+    });
     const { client, emit } = fakeClient(makeUpdate(onTable, 'p0'));
     resetStore({ makeClient: () => client, motionEnabled: true });
     await useAppStore.getState().startMatch(setup);
     expect(useAppStore.getState().sweep).toBeNull();
-    emit(makeUpdate(start(), 'p0', { events: [{ type: 'vidbiy', closerId: 'p1' }] }));
+    emit(makeUpdate(closed, 'p0', { events: [{ type: 'vidbiy', closerId: 'p1' }] }));
     expect(useAppStore.getState().sweep).toMatchObject({ cards: [c('6D'), c('7D')], ms: EXIT_MS });
     // Взятая нижняя не улетает: слой отбоя живёт свой срок и пропадает целиком.
     emit(makeUpdate(start(), 'p0', { events: [{ type: 'tookBottom', playerId: 'p1', card: c('7H') }] }));
@@ -77,6 +84,31 @@ describe('app store', () => {
     expect(useAppStore.getState().sweep).not.toBeNull();
     vi.advanceTimersByTime(EXIT_MS);
     expect(useAppStore.getState().sweep).toBeNull();
+  });
+
+  it('a new game opens on a clean table: the flying discard layer does not carry over', async () => {
+    const onTable = phase2State({
+      players: [{ id: 'p0', hand: '7H' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      table: [['6D', 'p1'], ['7D', 'p2']],
+      trump: 'D',
+      turn: 'p0',
+    });
+    const closed = phase2State({
+      players: [{ id: 'p0', hand: '7H' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      trump: 'D',
+      turn: 'p0',
+      discard: '6D 7D',
+    });
+    const { client, emit } = fakeClient(makeUpdate(onTable, 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    emit(makeUpdate(closed, 'p0', { events: [{ type: 'vidbiy', closerId: 'p1' }] }));
+    expect(useAppStore.getState().sweep).not.toBeNull();
+    emit(makeUpdate(start(), 'p0', { session: { gameNumber: 2, losses: {}, vakhterId: null, status: 'playing', canContinue: true } }));
+    vi.advanceTimersByTime(STEP_MS);
+    expect(useAppStore.getState().update!.session.gameNumber).toBe(2);
+    expect(useAppStore.getState().sweep).toBeNull();
+    expect(useAppStore.getState().celebrating).toBe(false);
   });
 
   it('shows a Russian toast and vibrates for a rejected intent, and drops the selection', async () => {

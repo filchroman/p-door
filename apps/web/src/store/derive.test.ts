@@ -71,7 +71,13 @@ describe('store derive', () => {
       turn: 'A',
     });
     const prev = makeUpdate(onTable, 'A');
-    const vidbiy = makeUpdate(p2, 'A', {
+    const closed = phase2State({
+      players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }],
+      trump: 'D',
+      turn: 'A',
+      discard: '6D 7D 8D',
+    });
+    const vidbiy = makeUpdate(closed, 'A', {
       events: [{ type: 'played', playerId: 'A', card: c('8D') }, { type: 'vidbiy', closerId: 'A' }],
     });
     expect(sweptCards(prev, vidbiy)).toEqual([c('6D'), c('7D'), c('8D')]);
@@ -80,6 +86,24 @@ describe('store derive', () => {
     expect(sweptCards(prev, took)).toEqual([]);
     expect(sweptCards(prev, makeUpdate(p2, 'A'))).toEqual([]);
     expect(sweptCards(null, vidbiy)).toEqual([c('8D')]);
+  });
+
+  /**
+   * Вынужденный отбой на уже пустом столе (движок так разбирает затор) ничего в отбой не кладёт —
+   * иначе только что взятая нижняя улетала бы в отбой, лёжа при этом в руке.
+   */
+  it('ignores a forced vidbiy that sent nothing to the discard', () => {
+    const onTable = phase2State({
+      players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }],
+      table: [['6D', 'B']],
+      trump: 'D',
+      turn: 'A',
+    });
+    const prev = makeUpdate(onTable, 'A');
+    const stalled = makeUpdate(p2, 'A', {
+      events: [{ type: 'tookBottom', playerId: 'A', card: c('6D') }, { type: 'vidbiy', closerId: 'A' }],
+    });
+    expect(sweptCards(prev, stalled)).toEqual([]);
   });
 
   it('gives a celebration beat only when somebody goes out on a table that is still on screen', () => {

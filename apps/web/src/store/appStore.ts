@@ -100,17 +100,19 @@ export const useAppStore = create<AppState>()((set, get) => {
   const show = (update: ClientUpdate, speed: number) => {
     const { marks, selection, debug, client, log, sweep, motionEnabled, update: prev } = get();
     const reduced = prefersReducedMotion();
+    // Новая партия — новый стол: ни улетающий отбой прошлой, ни её праздничный такт сюда не тянутся.
+    const fresh = !prev || prev.session.gameNumber !== update.session.gameNumber;
     // Стол переживает свой последний срез: иначе экран итогов съедает ленту «Вышел!» и конфетти.
-    const hold = motionEnabled ? celebrationHoldMs({ prev, next: update, speed, reduced }) : 0;
+    const hold = motionEnabled && !fresh ? celebrationHoldMs({ prev, next: update, speed, reduced }) : 0;
     // Отбой улетает отдельным слоем: в самой зоне стола всегда ровно карты среза.
-    const swept = motionEnabled ? sweptCards(prev, update) : [];
+    const swept = motionEnabled && !fresh ? sweptCards(prev, update) : [];
     const ms = sweepMs(speed, reduced);
     stopCelebration();
-    if (swept.length > 0) stopSweep();
+    if (fresh || swept.length > 0) stopSweep();
     set({
       update,
       animSpeed: speed,
-      sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms } : sweep,
+      sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms } : fresh ? null : sweep,
       celebrating: hold > 0,
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),

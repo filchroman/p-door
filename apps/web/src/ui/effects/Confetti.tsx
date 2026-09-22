@@ -9,10 +9,11 @@ export function Confetti({ burstKey, durationMs = 2200, count = 120 }: { burstKe
   const enabled = useAppStore((s) => s.motionEnabled);
   const reduced = prefersReducedMotion();
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [done, setDone] = useState(false);
+  // Какой залп уже доиграл: флагом было не обойтись — сброшенный флаг снова запускал тот же залп,
+  // а новый burstKey на уже смонтированном слое не запускался вовсе (canvas был снят).
+  const [doneKey, setDoneKey] = useState<number | string | null>(null);
 
   useEffect(() => {
-    setDone(false);
     const el = canvas.current;
     const ctx = el?.getContext('2d');
     if (!el || !ctx) return undefined;
@@ -34,11 +35,11 @@ export function Confetti({ burstKey, durationMs = 2200, count = 120 }: { burstKe
         ctx.restore();
       }
       if (now - started < durationMs && particles.length > 0) frame = requestAnimationFrame(draw);
-      else setDone(true);
+      else setDoneKey(burstKey);
     });
     return () => cancelAnimationFrame(frame);
   }, [burstKey, count, durationMs]);
 
-  if (!enabled || reduced || done) return null;
+  if (!enabled || reduced || doneKey === burstKey) return null;
   return <canvas ref={canvas} className="confetti" aria-hidden="true" />;
 }

@@ -45,6 +45,29 @@ describe('celebration effects', () => {
     vi.unstubAllGlobals();
   });
 
+  /** Новый залп (свой burstKey) обязан запуститься и после того, как прошлый доиграл и снял canvas. */
+  it('a later burst runs again after the previous one has finished', () => {
+    const ctx = { clearRect() {}, save() {}, restore() {}, translate() {}, rotate() {}, fillRect() {}, fillStyle: '' };
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    const frames = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      frames();
+      cb(performance.now() + 10_000);
+      return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    try {
+      const { container, rerender } = render(<Confetti burstKey={1} durationMs={10} count={5} />);
+      expect(frames).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('canvas')).toBeNull();
+      rerender(<Confetti burstKey={2} durationMs={10} count={5} />);
+      expect(frames).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+      getContext.mockRestore();
+    }
+  });
+
   it('confetti bursts when I go out', () => {
     resetStore({ update: makeUpdate(state, 'A'), motionEnabled: true, marks: { ...emptyMarks(1), seq: 1, outFx: { A: { seq: 1, at: Date.now() } } } });
     expect(render(<OutConfetti />).container.querySelector('canvas')).not.toBeNull();

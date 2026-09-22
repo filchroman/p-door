@@ -1,5 +1,7 @@
 import { givePenalty, maybeStartPhase2 } from './penalty';
 import { applyPhase1 } from './phase1';
+import { applyPhase2 } from './phase2';
+import { surrender } from './result';
 import { findPlayer } from './state';
 import type { Action, ApplyResult, ErrorCode, GameEvent, GameState, PlayerId } from './types';
 import { callVakhta, isWatchOpen } from './vakhta';
@@ -19,8 +21,15 @@ function dispatch(s: GameState, playerId: PlayerId, action: Action, now: number,
   if (action.type === 'tick') return null;
   const p = findPlayer(s, playerId);
   if (!p) return 'unknown_player';
+  if (action.type === 'surrender') return surrender(s, p, events);
   if (action.type === 'callVakhta') return callVakhta(s, p, now, events);
-  if (s.phase === 'phase1') return applyPhase1(s, p, action, now, events);
-  if (s.phase === 'penalty') return action.type === 'givePenalty' ? givePenalty(s, p, action, events) : 'wrong_phase';
+  switch (s.phase) {
+    case 'phase1':
+      return applyPhase1(s, p, action, now, events);
+    case 'penalty':
+      return action.type === 'givePenalty' ? givePenalty(s, p, action, events) : 'wrong_phase';
+    case 'phase2':
+      return applyPhase2(s, p, action, events);
+  }
   return 'wrong_phase';
 }

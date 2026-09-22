@@ -2,7 +2,7 @@ import { VAKHTA_GRACE_MS, makeDeck, mulberry32, shuffle, type DeckSize, type Gam
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BOT_REACTION_MAX_MS } from '../bots/botAction';
 import { runUntil, testHostOptions } from '../test/hostOptions';
-import { penaltyState, phase1State } from '../test/states';
+import { c, penaltyState, phase1State } from '../test/states';
 import type { MatchSettings, SeatInfo } from '../client/types';
 import { LocalHost, type HostOptions } from './LocalHost';
 import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS } from './types';
@@ -102,6 +102,38 @@ describe('LocalHost, timers', () => {
     const s = host.getState()!;
     expect(s.phase !== 'phase1' || s.turn !== 'me').toBe(true);
     expect(host.getLog().some((e) => e.playerId === 'me' && e.action?.type === 'draw')).toBe(true);
+  });
+
+  // Ход фазы 1 — цикл (спека §2.2): «+1» продолжает ход, и каждый мой шаг в нём отмеряет время заново.
+  // Иначе длинная цепочка съедает единственный бюджет хода и автоход забирает ход прямо из-под руки.
+  it('every step of a continuing phase 1 turn measures the turn time anew', () => {
+    const state = phase1State({
+      deckSize: 52,
+      players: [{ id: 'me', stack: 'AH' }, { id: 'b1', stack: '5C' }, { id: 'b2', stack: 'KD' }],
+      deck: '2S 3D 9C 7H 8H TC JC QC 4D 5D 6D 7D',
+    });
+    const host = makeHost({ seats: [human('me'), bot('b1'), bot('b2')], settings: settings(52, 15), initialState: state });
+    host.start();
+    expect(host.getDeadlines().turnEndsAt).toBe(15_000);
+
+    vi.advanceTimersByTime(6000);
+    expect(host.act('me', { type: 'draw' })).toEqual({ ok: true }); // 2♠ — «+1» на мой туз
+    expect(host.act('me', { type: 'placeDrawn', to: 'me' })).toEqual({ ok: true });
+    expect(host.getState()!.turn).toBe('me');
+    expect(host.getDeadlines().turnEndsAt).toBe(21_000);
+
+    vi.advanceTimersByTime(6000);
+    expect(host.act('me', { type: 'draw' })).toEqual({ ok: true }); // 3♦ — «+1» на мою двойку
+    expect(host.getState()!.drawn).toEqual(c('3D'));
+
+    // 15 с от начала хода прошли, но с моего последнего шага — только три: тройка ещё моя, ход тоже.
+    vi.advanceTimersByTime(3001);
+    expect(host.getState()!.drawn).toEqual(c('3D'));
+    expect(host.getState()!.turn).toBe('me');
+
+    // А вот 15 с молчания после последнего шага автоход уже не прощает.
+    vi.advanceTimersByTime(12_000);
+    expect(host.getState()!.turn).not.toBe('me');
   });
 
   it('turn timer is off when turnSeconds is 0', () => {

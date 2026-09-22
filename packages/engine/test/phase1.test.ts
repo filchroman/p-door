@@ -36,6 +36,26 @@ describe('phase 1 turn', () => {
     expect(s.turn).toBe('A');
   });
 
+  // Жалоба из зала: «после 2 взял 3 и мой ход закончился». В 52-карточной колоде двойка ложится
+  // на туза по кругу, тройка — на двойку: оба шага — «+1», ход остаётся за тем же игроком.
+  it('a two onto an ace and then a three onto it both continue the turn', () => {
+    let s = phase1State({
+      deckSize: 52,
+      players: [{ id: 'A', stack: '9H' }, { id: 'B', stack: 'AS' }, { id: 'C', stack: 'KD' }],
+      deck: '2C 3H 8D',
+    });
+    s = act(s, 'A', { type: 'draw' });
+    s = act(s, 'A', { type: 'placeDrawn', to: 'B' });
+    expect(top(s, 'B')).toEqual(c('2C'));
+    expect(s.turn).toBe('A');
+    s = act(s, 'A', { type: 'draw' });
+    expect(s.drawn).toEqual(c('3H'));
+    s = act(s, 'A', { type: 'placeDrawn', to: 'B' });
+    expect(top(s, 'B')).toEqual(c('3H'));
+    expect(s.drawn).toBeNull();
+    expect(s.turn).toBe('A');
+  });
+
   it('+1 wraps from Ace to six', () => {
     let s = phase1State({ players: [{ id: 'A', stack: '9H' }, { id: 'B', stack: 'AS' }], deck: '6D QH' });
     s = act(s, 'A', { type: 'draw' });

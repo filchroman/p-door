@@ -50,6 +50,12 @@ export const realClock: HostClock = {
 
 const MAX_AUTO_STEPS = 64;
 const LOG_LIMIT = 500;
+/**
+ * Шаги, из которых состоит ход. Ход фазы 1 — цикл (спека §2.2): «+1» продолжает его, и таких шагов
+ * в одном ходу может быть много. Время хода отмеряется на шаг, а не на весь цикл, поэтому каждый
+ * такой шаг ходящего перезапускает таймер. Вызов Вахты соперником, штраф и `tick` — не шаги хода.
+ */
+const TURN_STEPS = new Set<Action['type']>(['draw', 'placeDrawn', 'moveOwnTop', 'play', 'take']);
 /** Столько отклонённых шагов подряд — и партию уже не расшевелить: показываем экран сбоя. */
 const MAX_STUCK_STEPS = 5;
 
@@ -68,6 +74,8 @@ export class LocalHost {
   private lastEvents: GameEvent[] = [];
   private changeSeq = 0;
   private actionCount = 0;
+  /** Сквозной номер шага хода: растёт на каждый шаг ходящего и тем перезапускает таймер хода. */
+  private turnSteps = 0;
   private log: LogEntry[] = [];
   private unexpectedErrorCount = 0;
   /** Отклонённых автоматических шагов подряд; любое применённое действие обнуляет. */
@@ -250,6 +258,7 @@ export class LocalHost {
   private applyAction(playerId: PlayerId, action: Action): ActResult {
     if (!this.state || this.status !== 'playing') return { ok: false, error: 'wrong_phase' };
     const now = this.clock.now();
+    const turnBefore = this.state.turn;
     let result: ApplyResult;
     try {
       result = apply(this.state, playerId, action, now);
@@ -267,6 +276,7 @@ export class LocalHost {
     this.stuckSteps = 0;
     this.changeSeq++;
     if (action.type !== 'tick') this.actionCount++;
+    if (playerId === turnBefore && TURN_STEPS.has(action.type)) this.turnSteps++;
     this.pushLog({ at: now, playerId: actor, action, events: result.events });
     this.afterChange();
     return { ok: true };
@@ -367,8 +377,8 @@ export class LocalHost {
     const state = this.state!;
     const seconds = this.settings.turnSeconds;
     const timed = seconds > 0 && (state.phase === 'phase1' || state.phase === 'phase2');
-    const perAction = state.phase === 'phase2' ? this.actionCount : '';
-    const key = timed ? `${this.gameNumber}:${state.phase}:${state.turn}:${perAction}` : null;
+    // В ключ входит номер шага хода: каждый шаг ходящего — новый ключ, то есть время хода заново.
+    const key = timed ? `${this.gameNumber}:${state.phase}:${state.turn}:${this.turnSteps}` : null;
     if (key === this.turnKey) return;
     this.cancel(this.turnTimer);
     this.turnTimer = null;

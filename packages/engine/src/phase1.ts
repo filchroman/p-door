@@ -1,7 +1,8 @@
 import { isPlusOne, type Card } from './cards';
 import { findPlayer, nextActive, seatOrderFrom, stackTop } from './state';
 import type { Action, ErrorCode, GameEvent, GameState, PlayerId, PlayerState } from './types';
-import { markOthersActed, openWatch } from './vakhta';
+import { determineTrump } from './trump';
+import { addFoulDebts, markOthersActed, openWatch } from './vakhta';
 
 export function opponentTargets(s: GameState, card: Card, selfId: PlayerId): PlayerId[] {
   return seatOrderFrom(s, selfId)
@@ -50,7 +51,8 @@ function draw(s: GameState, p: PlayerState, now: number, events: GameEvent[]): E
   s.drawHistory.push(card);
   openWatch(s, p.id, now, violated);
   events.push({ type: 'drew', playerId: p.id, card });
-  s.drawn = card;
+  if (s.deck.length === 0) finishPhase1(s, p, card, events);
+  else s.drawn = card;
   return null;
 }
 
@@ -73,4 +75,19 @@ function placeDrawn(s: GameState, p: PlayerState, to: PlayerId, now: number, eve
   events.push({ type: 'kept', playerId: p.id, card });
   s.turn = nextActive(s, p.id);
   return null;
+}
+
+function finishPhase1(s: GameState, drawer: PlayerState, lastCard: Card, events: GameEvent[]): void {
+  drawer.stack.push(lastCard);
+  s.lastCardDrawerId = drawer.id;
+  s.trump = determineTrump(lastCard, s.drawHistory.slice(0, -1), s.openDeal);
+  events.push({ type: 'trump', suit: s.trump, card: lastCard });
+  for (const w of s.watches) w.othersActed = true;
+  for (const pl of s.players) {
+    pl.hand = pl.stack;
+    pl.stack = [];
+  }
+  for (const pl of s.players) if (pl.fouls > 0) addFoulDebts(s, pl.id, pl.fouls);
+  s.phase = 'penalty';
+  events.push({ type: 'phase', phase: 'penalty' });
 }

@@ -207,3 +207,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *:not(.countdown__bar), *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
+
+.home-screen { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 24px; }
+.loading-screen { flex: 1; display: grid; place-items: center; font: 400 2rem var(--font-script); color: #fff7e0; }

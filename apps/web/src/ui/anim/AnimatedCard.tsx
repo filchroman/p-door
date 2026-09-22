@@ -9,8 +9,11 @@ export interface AnimatedCardProps {
   id: string;
   className?: string;
   style?: CSSProperties;
-  /** Карта не летает сама — её несёт контейнер (большой веер руки). */
-  still?: boolean;
+  /**
+   * Перестроение веера несёт контейнер (большой веер руки): карта не обмеряет себя сама.
+   * Общий layoutId при этом остаётся — перелёт между зонами (рука ↔ стол) никуда не девается.
+   */
+  carried?: boolean;
   children: ReactNode;
 }
 
@@ -19,13 +22,13 @@ export interface AnimatedCardProps {
  * Доигрывающих уход карт поверх зоны здесь нет: прерванный уход оставлял их в DOM навсегда
  * (призраки на столе), поэтому отбой рисуется отдельным слоем — см. TableFan.
  */
-export function AnimatedCard({ id, className, style, still = false, children }: AnimatedCardProps) {
+export function AnimatedCard({ id, className, style, carried = false, children }: AnimatedCardProps) {
   const enabled = useAppStore((s) => s.motionEnabled);
   const speed = useAppStore((s) => s.animSpeed);
   const reduced = useReducedMotion() ?? false;
   const ref = useRef<HTMLDivElement>(null);
   const classes = `animated-card ${className ?? ''}`.trim();
-  if (!enabled || still) {
+  if (!enabled) {
     return (
       <div className={classes} style={style}>
         {children}
@@ -38,8 +41,9 @@ export function AnimatedCard({ id, className, style, still = false, children }: 
   return (
     <motion.div
       ref={ref}
-      layout={m.layoutId}
+      layout={m.layoutId && !carried}
       layoutId={m.layoutId ? id : undefined}
+      data-layout-id={m.layoutId ? id : undefined}
       className={classes}
       style={style as MotionStyle}
       initial={m.initial as TargetAndTransition}

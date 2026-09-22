@@ -11,7 +11,11 @@ import { legalFromView } from './legal';
 import { useDrag } from './useDrag';
 import { zoneProps } from './zones';
 
-/** Больше — веер двигается целиком одной трансформацией (не больше ~12 летящих карт, спека §2a). */
+/**
+ * Больше — перестроение веера несёт контейнер одной трансформацией вместо N обмеров карт
+ * (бюджет ~12 летящих карт, спека §2a). Сами перелёты (общий layoutId) остаются у карт всегда:
+ * иначе в обычной партии — 3 игрока, 36 карт, ~10 карт на руке — карта не летела бы никуда.
+ */
 export const MAX_ANIMATED_HAND = 6;
 const HAND_CARD = 68;
 const HAND_WIDTH = 300;
@@ -31,11 +35,12 @@ interface HandCardProps {
   angle: number;
   myTurn: boolean;
   flipIn: boolean;
-  still: boolean;
+  /** Веер перестраивает контейнер: карта не обмеряет себя, но свой layoutId сохраняет. */
+  carried: boolean;
   onPlay(code: string): void;
 }
 
-const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, still, onPlay }: HandCardProps) {
+const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, carried, onPlay }: HandCardProps) {
   const card = useMemo(() => parseCard(code), [code]);
   const drag = useDrag({
     onTap: () => {
@@ -49,7 +54,7 @@ const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipI
   const classes = ['hand-card', legal ? 'is-legal' : '', dim ? 'is-dim' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} data-legal={legal} style={{ '--angle': `${angle}deg` } as CSSProperties} {...drag.handlers}>
-      <AnimatedCard id={code} still={still}>
+      <AnimatedCard id={code} carried={carried}>
         <FlipIn flip={flipIn}>
           <PlayingCard card={card} />
         </FlipIn>
@@ -90,7 +95,7 @@ export const Hand = memo(function Hand() {
           angle={(i - (codes.length - 1) / 2) * spread}
           myTurn={myTurn}
           flipIn={flipIn}
-          still={big}
+          carried={big}
           onPlay={onPlay}
         />
       ))}

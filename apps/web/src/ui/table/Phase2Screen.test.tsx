@@ -5,7 +5,7 @@ import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
 import { c, penaltyState, phase2State } from '../../test/states';
 import { makeUpdate, resetStore } from '../../test/updates';
-import { Hand } from './Hand';
+import { Hand, MAX_ANIMATED_HAND } from './Hand';
 import { OpponentHand } from './OpponentHand';
 import { Phase2Screen } from './Phase2Screen';
 
@@ -131,5 +131,20 @@ describe('Hand: narrow subscription', () => {
     const { container } = render(<Hand />);
     expect(container.querySelectorAll('[data-zone="hand-A"] .card')).toHaveLength(8);
     expect(container.querySelector('[data-zone="hand-A"]')).toHaveAttribute('data-animate', 'group');
+  });
+
+  /**
+   * Порог веера (MAX_ANIMATED_HAND) снимает с карт только собственный обмер layout — общий layoutId
+   * остаётся: иначе в обычной партии (3 игрока, 36 карт — это ~10 карт на руке) карта не летит
+   * ни в стол, ни из стола в руку, а просто исчезает и появляется (спека §2a, §2b).
+   */
+  it.each([3, MAX_ANIMATED_HAND, MAX_ANIMATED_HAND + 4])('a hand of %i keeps a shared layoutId on every card', (n) => {
+    const hand = 'JC 6C 7C 8C 9C TC QC KC 6D 7D'.split(' ').slice(0, n).join(' ');
+    const state = phase2State({ players: [{ id: 'A', hand }, { id: 'B', hand: 'AS' }], trump: 'D', turn: 'B' });
+    resetStore({ update: makeUpdate(state, 'A'), send, motionEnabled: true });
+    const { container } = render(<Hand />);
+    const zone = container.querySelector('[data-zone="hand-A"]')!;
+    expect(zone.querySelectorAll('.card')).toHaveLength(n);
+    expect(zone.querySelectorAll('[data-layout-id]')).toHaveLength(n);
   });
 });

@@ -42,6 +42,7 @@ export function vakhterVechora(se: SessionState): PlayerId | null {
   return null;
 }
 
+/** Колода тасуется по seed (тесты, фазз); прод перед createGame добавляет `deck`, перетасованную через crypto. */
 export function setupNextGame(se: SessionState, playerIds: PlayerId[], deckSize: DeckSize, seed: number, stallRule: StallRule = 'forcedVidbiy'): GameSetup {
   const random = mulberry32(seed ^ 0x9e3779b9);
   return {

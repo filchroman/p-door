@@ -1,5 +1,6 @@
 import { ru } from '../i18n/ru';
 import { useAppStore } from '../store/appStore';
+import { DebugPanel } from './debug/DebugPanel';
 import { GameScreen } from './GameScreen';
 import { HomeScreen } from './HomeScreen';
 import { Toasts } from './Toasts';
@@ -16,6 +17,7 @@ export function App() {
       )}
       {screen === 'game' && <GameScreen />}
       <Toasts />
+      {screen === 'game' && <DebugPanel />}
     </main>
   );
 }

@@ -1,0 +1,18 @@
+.debug-toggle {
+  position: fixed; top: 10px; right: 10px; z-index: 90;
+  width: 42px; height: 42px; border: 2px solid #fff; border-radius: 50%;
+  font-size: 1.3rem; background: linear-gradient(#546e7a, #263238);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5); cursor: pointer;
+}
+.debug-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 85;
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(360px, 92vw); padding: 60px 14px 14px; overflow-y: auto;
+  font-size: 0.9rem; color: #eceff1; background: rgba(20, 26, 32, 0.96);
+  box-shadow: -6px 0 20px rgba(0, 0, 0, 0.5); user-select: text;
+}
+.debug-panel h2, .debug-panel h3 { margin: 0; font-size: 1rem; }
+.debug-panel .segmented { flex-wrap: wrap; }
+.check { display: flex; align-items: center; gap: 8px; }
+.fps-line { margin: 0; font: 700 0.9rem ui-monospace, monospace; }
+.debug-log { max-height: 40vh; margin: 0; padding-left: 2.2em; overflow-y: auto; font: 0.75rem/1.35 ui-monospace, monospace; white-space: pre-wrap; word-break: break-word; }

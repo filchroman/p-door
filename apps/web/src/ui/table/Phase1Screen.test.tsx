@@ -45,6 +45,21 @@ describe('Phase1Screen', () => {
     expect(screen.getByTestId('pile-A')).toHaveTextContent('3');
   });
 
+  it('keeps the drawn card slot reserved so nothing reflows when a card appears', () => {
+    const players = [{ id: 'A', stack: '7H' }, { id: 'B', stack: 'QC' }];
+    const empty = show(phase1State({ players, deck: 'AS 8C 9D' }));
+    const emptySlot = empty.container.querySelector('.drawn-slot')!;
+    expect(emptySlot).not.toBeNull();
+    expect(emptySlot.querySelectorAll('.card')).toHaveLength(0);
+    empty.unmount();
+    const filled = show(phase1State({ players, deck: '8C 9D', drawn: 'AS' }));
+    const filledSlot = filled.container.querySelector('.drawn-slot')!;
+    // Место под вытянутую карту — та же коробка рядом с колодой, а не прибавка к раскладке.
+    expect(filledSlot.className).toBe(emptySlot.className);
+    expect(filledSlot.previousElementSibling!.className).toBe('deck');
+    expect(filledSlot.querySelectorAll('.card')).toHaveLength(1);
+  });
+
   it('an empty deck shows no cards but keeps its counter', () => {
     const { container } = show(phase1State({ players: [{ id: 'A', stack: '7H' }, { id: 'B', stack: 'QC' }], deck: '' }));
     expect(container.querySelectorAll('[data-zone="deck"] .card')).toHaveLength(0);

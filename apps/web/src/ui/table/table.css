@@ -6,7 +6,13 @@
 .player-frame { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px; }
 .player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 3px #7cfc9a, 0 0 16px #7cfc9a, 0 3px 6px rgba(0, 0, 0, 0.45); }
 .player-frame.is-out { opacity: 0.6; }
-.plaque-slot { min-height: 20px; }
+/*
+ * Плашка статуса не участвует в раскладке: слот всегда одной высоты, а сама плашка лежит в нём
+ * поверх. Раньше она была в потоке — её появление поднимало строку соперников на 3 px, и весь
+ * столбец (колода, моя стопка, нижняя панель) прыгал на каждый ход бота (спека §2c).
+ */
+.plaque-slot { position: relative; height: 24px; width: 100%; }
+.plaque-slot .plaque { position: absolute; left: 50%; top: 1px; transform: translateX(-50%); }
 .plaque--caught { color: #fff; border-color: #1b5e20; background: linear-gradient(#81c784, #2e7d32); }
 .plaque--taking { color: #4a2c00; border-color: #b06000; background: linear-gradient(#ffcc80, #ef6c00); }
 .plaque--beating { color: #fff; border-color: #0d47a1; background: linear-gradient(#64b5f6, #1565c0); }
@@ -34,14 +40,21 @@
 .stack-layer { position: absolute; left: 0; top: 0; }
 
 /* фаза 1 */
-.deck-area { display: flex; align-items: center; gap: 22px; }
-.deck { position: relative; min-width: 64px; min-height: 96px; padding: 0; border: 0; background: none; cursor: pointer; }
+/*
+ * Колода и вытянутая карта — две одинаковые коробки в одной строке (спека §2c): вытянутая лежит
+ * ровно справа от колоды на той же линии, её место занято всегда, поэтому появление и исчезновение
+ * карты ничего не двигает. Раньше `.deck__pile` был строчным span нулевого размера — рубашки
+ * рисовались от угла кнопки, и вытянутая карта оказывалась выше и правее колоды, по диагонали.
+ */
+.deck-area { --deck-card-w: 60px; --deck-gap: 16px; display: flex; align-items: flex-start; gap: var(--deck-gap); }
+.deck { position: relative; display: block; width: var(--deck-card-w); padding: 0; border: 0; background: none; cursor: pointer; }
 .deck:disabled { cursor: default; }
-.deck__pile { --card-w: 60px; position: relative; width: 60px; aspect-ratio: 2 / 3; }
+.deck__pile { --card-w: var(--deck-card-w); display: block; position: relative; width: 100%; aspect-ratio: 2 / 3; }
 .deck:not(:disabled) .deck__pile .stack-layer:last-child .card { --glow: rgba(255, 255, 255, 0.75); }
 .deck:not(:disabled) .deck__pile .stack-layer:last-child .card::after { opacity: 1; }
 .deck__count { position: absolute; right: -10px; bottom: -10px; z-index: 2; min-width: 26px; padding: 2px 6px; border-radius: 13px; font-weight: 700; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
-.drawn-slot { --card-w: 60px; display: grid; place-items: center; min-width: 64px; min-height: 96px; }
+.drawn-slot { --card-w: var(--deck-card-w); display: grid; align-content: start; width: var(--deck-card-w); aspect-ratio: 2 / 3; }
+.drawn-slot > * { grid-area: 1 / 1; }
 .pile { position: relative; display: flex; align-items: flex-end; gap: 6px; min-height: 44px; padding: 4px; border-radius: 10px; }
 .pile.is-targetable { outline: 2px dashed rgba(255, 255, 255, 0.55); cursor: pointer; }
 .pile.is-snap, .table-fan.is-snap { outline: 3px solid #ffd54f; }

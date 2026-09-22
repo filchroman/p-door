@@ -126,8 +126,10 @@ body {
 .segmented__icon { font-size: 1.5rem; }
 
 .plaque {
-  display: inline-block;
-  padding: 2px 8px;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  padding: 0 8px;
   border: 1px solid var(--gold-dark);
   border-radius: 6px;
   font: 700 0.72rem var(--font-body);

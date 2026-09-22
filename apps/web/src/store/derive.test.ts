@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { GameResult } from '@vakhta/engine';
+import type { ClientUpdate } from '../client/types';
 import { ru } from '../i18n/ru';
 import { c, phase1State, phase2State } from '../test/states';
 import { makeUpdate, seatsFor } from '../test/updates';
-import { FX_MS, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, nextTableSweep } from './derive';
+import { FX_MS, celebrationHoldMs, emptyMarks, errorText, eventToasts, isFresh, keepSelection, nextMarks, nextTableSweep } from './derive';
 
 const p2 = phase2State({ players: [{ id: 'A', hand: '6C' }, { id: 'B', hand: '7C' }, { id: 'C', hand: '8C' }], trump: 'D', turn: 'A' });
 
@@ -71,6 +73,25 @@ describe('store derive', () => {
     expect(nextTableSweep(true, played)).toBe(true);
     expect(nextTableSweep(false, played)).toBe(false);
     expect(nextTableSweep(true, makeUpdate(p2, 'A'))).toBe(true);
+  });
+
+  it('gives a celebration beat only when somebody goes out on a table that is still on screen', () => {
+    const playing = makeUpdate(p2, 'A');
+    const result: GameResult = { loserId: 'B', winnerId: 'A', outOrder: ['A'], technical: false };
+    const over = (events: ClientUpdate['events']) =>
+      makeUpdate(p2, 'A', { session: { ...playing.session, status: 'gameOver' }, events });
+    const wentOut = over([{ type: 'out', playerId: 'A' }, { type: 'gameOver', result }]);
+    const technical = over([{ type: 'gameOver', result: { ...result, technical: true } }]);
+    const hold = (next: ClientUpdate, prev: ClientUpdate | null = playing, speed = 1, reduced = false) =>
+      celebrationHoldMs({ prev, next, speed, reduced });
+    expect(hold(wentOut)).toBe(FX_MS);
+    expect(hold(technical)).toBe(0);
+    expect(hold(playing)).toBe(0);
+    expect(hold(wentOut, null)).toBe(0);
+    expect(hold(wentOut, wentOut)).toBe(0);
+    // Очередь догоняет состояние — такт короче; «меньше движения» — без него вовсе.
+    expect(hold(wentOut, playing, 2)).toBe(FX_MS / 2);
+    expect(hold(wentOut, playing, 1, true)).toBe(0);
   });
 
   it('explains errors in Russian, with the spec wording for a bad beat', () => {

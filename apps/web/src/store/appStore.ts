@@ -3,8 +3,10 @@ import { create } from 'zustand';
 import { preloadDeck } from '../cards/preload';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import type { AppClient, BotSpeed, ClientUpdate, Intent, LogEntry } from '../client/types';
+import { prefersReducedMotion } from '../ui/anim/reducedMotion';
 import { VIBRATE_ERROR, vibrate } from '../ui/haptics';
 import {
+  celebrationHoldMs,
   emptyMarks,
   errorText,
   eventToasts,
@@ -48,6 +50,8 @@ export interface AppState {
   animSpeed: number;
   /** Стол уходит в отбой целиком (отбой/затык), а не теряет нижнюю карту в чью-то руку. */
   tableSweep: boolean;
+  /** Идёт праздничный такт: стол с лентой «Вышел!» держится, итоги ещё не открыты. */
+  celebrating: boolean;
   makeClient: (setup: MatchSetup) => AppClient;
   preload: (deckSize: DeckSize) => Promise<void>;
   startMatch(setup: MatchSetup): Promise<void>;
@@ -69,14 +73,24 @@ export interface AppState {
 const MAX_TOASTS = 4;
 let toastSeq = 0;
 let detach: (() => void) | null = null;
+let celebrateTimer: ReturnType<typeof setTimeout> | null = null;
+
+function stopCelebration(): void {
+  if (celebrateTimer !== null) clearTimeout(celebrateTimer);
+  celebrateTimer = null;
+}
 
 export const useAppStore = create<AppState>()((set, get) => {
   const show = (update: ClientUpdate, speed: number) => {
-    const { marks, selection, debug, client, log, tableSweep } = get();
+    const { marks, selection, debug, client, log, tableSweep, motionEnabled, update: prev } = get();
+    // Стол переживает свой последний срез: иначе экран итогов съедает ленту «Вышел!» и конфетти.
+    const hold = motionEnabled ? celebrationHoldMs({ prev, next: update, speed, reduced: prefersReducedMotion() }) : 0;
+    stopCelebration();
     set({
       update,
       animSpeed: speed,
       tableSweep: nextTableSweep(tableSweep, update),
+      celebrating: hold > 0,
       marks: nextMarks(marks, update),
       selection: keepSelection(selection, update.view),
       allHands: debug.showAllHands && client ? client.debug.allHands() : null,
@@ -84,6 +98,12 @@ export const useAppStore = create<AppState>()((set, get) => {
       // срезе очереди анимаций, только пока он виден (иначе лишняя работа на каждый ход бота).
       log: debug.open && client ? client.debug.log() : log,
     });
+    if (hold > 0) {
+      celebrateTimer = setTimeout(() => {
+        celebrateTimer = null;
+        set({ celebrating: false });
+      }, hold);
+    }
     for (const toast of eventToasts(update)) get().pushToast(toast.text, toast.tone);
   };
 
@@ -101,6 +121,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       offUpdate();
       offError();
       pump.clear();
+      stopCelebration();
       client.dispose();
     };
   };
@@ -119,6 +140,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     motionEnabled: true,
     animSpeed: 1,
     tableSweep: false,
+    celebrating: false,
     makeClient: (setup) => createLocalMatch(setup),
     preload: (deckSize) => preloadDeck(deckSize),
 
@@ -138,6 +160,7 @@ export const useAppStore = create<AppState>()((set, get) => {
         update,
         animSpeed: 1,
         tableSweep: false,
+        celebrating: false,
         marks: emptyMarks(update?.session.gameNumber ?? 0),
         selection: null,
         allHands: debug.showAllHands ? client.debug.allHands() : null,
@@ -174,7 +197,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     goHome() {
       detach?.();
       detach = null;
-      set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [] });
+      set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], celebrating: false });
     },
 
     async restart() {

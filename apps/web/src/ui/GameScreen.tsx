@@ -11,9 +11,11 @@ import { VakhtaButton } from './table/VakhtaButton';
 
 export function GameScreen() {
   const update = useAppStore((s) => s.update);
+  // Праздничный такт: партия уже кончена, но стол ещё держится, чтобы доиграла лента «Вышел!».
+  const celebrating = useAppStore((s) => s.celebrating);
   if (!update || update.session.status === 'crashed') return <CrashScreen />;
   if (update.session.status === 'sessionOver') return <SessionResults />;
-  if (update.session.status === 'gameOver') return <GameResults />;
+  if (update.session.status === 'gameOver' && !celebrating) return <GameResults />;
   const { view } = update;
   return (
     <>

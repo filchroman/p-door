@@ -31,6 +31,30 @@ export function isFresh(fx: { at: number } | null | undefined, now: number = Dat
   return !!fx && now - fx.at < FX_MS;
 }
 
+/**
+ * Сколько держать стол, прежде чем открыть итоги: движок шлёт `out` и `gameOver` одной пачкой,
+ * и без этого такта лента «Вышел!» с конфетти не успевают показаться вовсе (спека §2b).
+ * Стол должен быть на экране (прошлый срез — игра), кто-то должен выйти (сдача — сразу итоги),
+ * очередь догоняет состояние — такт короче, «меньше движения» — его нет.
+ */
+export function celebrationHoldMs({
+  prev,
+  next,
+  speed,
+  reduced,
+}: {
+  prev: ClientUpdate | null;
+  next: ClientUpdate;
+  speed: number;
+  reduced: boolean;
+}): number {
+  if (reduced) return 0;
+  if (!prev || prev.session.status !== 'playing') return 0;
+  if (next.session.status !== 'gameOver') return 0;
+  if (!next.events.some((event) => event.type === 'out')) return 0;
+  return Math.round(FX_MS / Math.max(1, speed));
+}
+
 /** Что клиент помнит между срезами: для плашек статуса и анимаций. */
 export interface RecentMarks {
   gameNumber: number;

@@ -1,6 +1,8 @@
+import { parseCard } from '@vakhta/engine';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { Profiler } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cardLabel } from '../../cards/labels';
 import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
 import { c, penaltyState, phase2State } from '../../test/states';
@@ -8,6 +10,7 @@ import { makeUpdate, resetStore } from '../../test/updates';
 import { Hand, MAX_ANIMATED_HAND } from './Hand';
 import { OpponentHand } from './OpponentHand';
 import { Phase2Screen } from './Phase2Screen';
+import { FAN_CAP } from './zones';
 
 const send = vi.fn();
 const beatNine = () =>
@@ -98,13 +101,27 @@ describe('Phase2Screen', () => {
   });
 });
 
-describe('OpponentHand: honest counts', () => {
-  it.each([0, 1, 5, 33])('renders exactly %i backs and the number', (n) => {
+/**
+ * Точным обязано быть число, а показ ограничен (спека §2c.2, уточняет §2b): веер соперника рисует
+ * не больше FAN_CAP рубашек — тридцать три растягивали стол за край экрана, — а цифра рядом всегда
+ * настоящая, и зона объявляет и то и другое.
+ */
+describe('OpponentHand: honest numbers, capped fan', () => {
+  it.each([0, 1, 5, 6, 7, 33])('shows min(%i, cap) backs and the exact number', (n) => {
     const { container } = render(<OpponentHand player={player(n)} cards={null} />);
     const zone = container.querySelector('[data-zone="hand-B"]')!;
-    expect(zone.querySelectorAll('.card')).toHaveLength(n);
+    expect(zone.querySelectorAll('.card')).toHaveLength(Math.min(n, FAN_CAP));
     expect(zone).toHaveAttribute('data-count', String(n));
+    expect(zone).toHaveAttribute('data-shown', String(Math.min(n, FAN_CAP)));
     expect(container).toHaveTextContent(String(n));
+  });
+
+  it('shows the top of the hand when all hands are open in debug', () => {
+    const cards = ['2C', '3C', '4C', '5C', '6C', '7C', '8C', '9C'].map((code) => parseCard(code));
+    const { container } = render(<OpponentHand player={player(cards.length)} cards={cards} />);
+    const zone = container.querySelector('[data-zone="hand-B"]')!;
+    expect(zone.querySelectorAll('.card')).toHaveLength(FAN_CAP);
+    expect(zone.querySelector('img')).toHaveAttribute('alt', cardLabel(cards[cards.length - FAN_CAP]));
   });
 });
 

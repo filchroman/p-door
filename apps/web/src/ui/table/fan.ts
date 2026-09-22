@@ -13,6 +13,22 @@ export const BIG_CARD_VW = 0.22;
 export const SMALL_CARD_MIN = 64;
 export const SMALL_CARD_MAX = 84;
 export const SMALL_CARD_VW = 0.17;
+/**
+ * Тесный стол (спека §2c.2). Пятеро соперников по §2c.1 (карта ≥ 64 px, аватарка 44) занимают
+ * втрое больше высоты, чем есть на 375×812, и экран получает прокрутку — а §2c.2 требует, чтобы
+ * при 2–6 игроках всё помещалось без неё. Поэтому до трёх соперников размеры §2c.1 держатся как
+ * есть, а с четырёх карта соперника ужимается: её ранг всё ещё читается, а цифра рядом точна всегда.
+ */
+export const CROWDED_FROM = 4;
+export const CROWDED_CARD = 54;
+/** Рубашки соперника и прикупа: информации на них нет, число рядом — точное (спека §2c.2). */
+export const MINI_CARD_MIN = 30;
+export const MINI_CARD_MAX = 38;
+export const MINI_CARD_VW = 0.08;
+export const CROWDED_MINI = 28;
+export const AVATAR_ROOMY = 40;
+export const AVATAR_CROWDED = 34;
+
 /** Игровая колонка на широком экране (theme.css, `.app-column`). */
 export const COLUMN_MAX = 480;
 /** Поля от края колонки до веера руки: `.my-area` (8px) + `.hand` (10px). */
@@ -29,6 +45,8 @@ export const FAN_STEP_MAX = 7;
 export const FAN_ARC_MAX = 44;
 
 const NATURAL_OVERLAP = 0.35;
+/** Плотнее этого рубашки сливаются в одну: из-под верхней всё ещё должен выглядывать край. */
+const MAX_OVERLAP = 0.72;
 
 function clampWidth(min: number, vw: number, max: number, viewport: number): number {
   return Math.round(Math.min(max, Math.max(min, viewport * vw)));
@@ -44,23 +62,41 @@ export function smallCardWidth(viewport: number): number {
   return clampWidth(SMALL_CARD_MIN, SMALL_CARD_VW, SMALL_CARD_MAX, viewport);
 }
 
+/** Ширина открытой карты соперника (верх стопки фазы 1). */
+export function opponentCardWidth(opponents: number, viewport: number): number {
+  return opponents >= CROWDED_FROM ? CROWDED_CARD : smallCardWidth(viewport);
+}
+
+/** Ширина рубашки в веере руки соперника и в прикупе. */
+export function miniCardWidth(opponents: number, viewport: number): number {
+  return opponents >= CROWDED_FROM ? CROWDED_MINI : clampWidth(MINI_CARD_MIN, MINI_CARD_VW, MINI_CARD_MAX, viewport);
+}
+
+/** Размер аватарки соперника. */
+export function opponentAvatar(opponents: number): number {
+  return opponents >= CROWDED_FROM ? AVATAR_CROWDED : AVATAR_ROOMY;
+}
+
 /** Сколько ширины есть у веера руки: колонка минус её поля. */
 export function handBudget(viewport: number): number {
   return Math.max(BIG_CARD_MIN, Math.min(viewport, COLUMN_MAX) - 2 * HAND_MARGIN);
 }
 
 /**
- * Рука соперника — плотная стопка рубашек: карта остаётся крупной (её видно, когда она прилетает),
- * но веер ужимается почти в одну ширину. Иначе рамка соперника разрастается за 200 px, на экране
- * 375 px соперники встают в столбик, и стол с рукой уезжают за нижний край (спека §2c.1).
+ * Во сколько ширин карты укладывается компактный веер (спека §2c.2). Рука соперника — чуть шире
+ * двух с половиной карт, прикуп — полторы: веер читается веером, а не одной картой, и не съедает
+ * ширину строки. Числа — доли ширины карты, поэтому не зависят от того, какой она сейчас размер.
  */
-export function opponentFanWidth(cardWidth: number): number {
-  return Math.round(cardWidth * 0.95);
-}
+export const OPPONENT_FAN_RATIO = 2.6;
+export const PRYKUP_FAN_RATIO = 1.6;
 
-/** Прикуп лежит ещё плотнее: ровно N рубашек, но места занимает меньше одной карты. */
-export function prykupFanWidth(cardWidth: number): number {
-  return Math.round(cardWidth * 0.8);
+/**
+ * Перекрытие соседних рубашек в долях ширины карты: N рубашек всегда укладываются в `widthRatio`
+ * ширин, но не наезжают друг на друга плотнее естественного перекрытия и не сливаются в одну.
+ */
+export function overlapFraction(count: number, widthRatio: number): number {
+  if (count <= 1) return 0;
+  return Math.min(MAX_OVERLAP, Math.max(NATURAL_OVERLAP, (count - widthRatio) / (count - 1)));
 }
 
 /** Шаг веера: чем больше карт, тем он мельче, но весь разворот не шире FAN_ARC_MAX. */

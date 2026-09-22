@@ -1,5 +1,5 @@
 import type { ClientUpdate } from '../client/types';
-import { cardsInPlay, expectedZones } from '../ui/table/zones';
+import { cardsInPlay, cardsShown, expectedZones, renderedZones } from '../ui/table/zones';
 
 export interface ExposedView {
   gameNumber: number;
@@ -9,10 +9,14 @@ export interface ExposedView {
   turn: string;
   /** Типы событий последнего показанного среза: по ним видно, какой ход сейчас проигрывается. */
   events: string[];
-  /** Сколько карт должно быть в каждой зоне по срезу. */
+  /** Сколько карт должно быть в каждой зоне по срезу — точное число, оно же стоит рядом цифрой. */
   zones: Record<string, number>;
+  /** Сколько карт зона обязана нарисовать: то же число, но не больше предела показа (спека §2c.2). */
+  rendered: Record<string, number>;
   /** Сколько карт всего в игре по срезу. */
   total: number;
+  /** Сколько карт всего нарисовано с учётом пределов показа. */
+  shown: number;
 }
 
 declare global {
@@ -36,7 +40,9 @@ export function exposeView(update: ClientUpdate | null): void {
         turn: update.view.turn,
         events: update.events.map((event) => event.type),
         zones: expectedZones(update.view),
+        rendered: renderedZones(update.view),
         total: cardsInPlay(update.view),
+        shown: cardsShown(update.view),
       }
     : undefined;
 }

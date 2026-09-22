@@ -32,27 +32,31 @@ export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, cau
   return (
     <div className={classes} data-testid={`player-${seat.id}`}>
       <div className="plaque-slot">{status && <span className={`plaque plaque--${status}`}>{ru.status[status]}</span>}</div>
-      <div className="avatar-frame">
-        <div key={caughtSeq ?? 'calm'} className={caughtSeq !== null ? 'avatar-shake' : 'avatar-still'}>
-          <span className="avatar" aria-hidden="true">{seat.avatar}</span>
+      {/* Аватарка и имя — один узкий столбик: у соперника карты встают справа от него, а не под
+          ним, и рамка занимает одну строку вместо трёх (спека §2c.2). */}
+      <div className="player-id">
+        <div className="avatar-frame">
+          <div key={caughtSeq ?? 'calm'} className={caughtSeq !== null ? 'avatar-shake' : 'avatar-still'}>
+            <span className="avatar" aria-hidden="true">{seat.avatar}</span>
+          </div>
+          {player.fouls > 0 && (
+            <span className="foul-badge" title={ru.table.fouls(player.fouls)}>
+              {player.fouls}
+            </span>
+          )}
+          {caughtSeq !== null && (
+            <>
+              <span key={`stamp-${caughtSeq}`} className="fx-stamp" aria-hidden="true">{ru.fx.stamp}</span>
+              <span key={`chip-${caughtSeq}`} className="fx-chip" aria-hidden="true">{ru.fx.foulChip}</span>
+            </>
+          )}
+          {outSeq !== null && (
+            <span key={`out-${outSeq}`} className="fx-out" aria-hidden="true">{ru.fx.outRibbon}</span>
+          )}
+          {turnEndsAt !== null && <Countdown endsAt={turnEndsAt} totalMs={turnTotalMs} className="avatar-timer" />}
         </div>
-        {player.fouls > 0 && (
-          <span className="foul-badge" title={ru.table.fouls(player.fouls)}>
-            {player.fouls}
-          </span>
-        )}
-        {caughtSeq !== null && (
-          <>
-            <span key={`stamp-${caughtSeq}`} className="fx-stamp" aria-hidden="true">{ru.fx.stamp}</span>
-            <span key={`chip-${caughtSeq}`} className="fx-chip" aria-hidden="true">{ru.fx.foulChip}</span>
-          </>
-        )}
-        {outSeq !== null && (
-          <span key={`out-${outSeq}`} className="fx-out" aria-hidden="true">{ru.fx.outRibbon}</span>
-        )}
-        {turnEndsAt !== null && <Countdown endsAt={turnEndsAt} totalMs={turnTotalMs} className="avatar-timer" />}
+        <div className="player-name">{seat.name}</div>
       </div>
-      <div className="player-name">{seat.name}</div>
       {/* Подпись лежит поверх рамки: появляется и гаснет, ничего не сдвигая. */}
       {caption && (
         <span

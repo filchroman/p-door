@@ -1,12 +1,14 @@
 import type { PlayerId, PublicPlayer } from '@vakhta/engine';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
 import { isFresh } from '../../store/derive';
+import { useViewportWidth } from '../useViewport';
 import { BottomBar } from './BottomBar';
 import { activeCount, opponentsOf, playerStatus } from './derive';
+import { miniCardWidth, opponentAvatar, opponentCardWidth } from './fan';
 import { PlayerFrame } from './PlayerFrame';
-import { cardsInPlay } from './zones';
+import { cardsInPlay, cardsShown } from './zones';
 import './table.css';
 
 export interface TableScreenProps {
@@ -42,10 +44,19 @@ export function TableScreen({ center, mine, action, opponentExtras }: TableScree
     captionSeq: acting?.id === p.id ? acting.seq : null,
     captionMs: acting?.id === p.id ? acting.holdMs : null,
   });
+  // Чем больше соперников, тем компактнее их строка: при пяти иначе экран растягивается за 812 px
+  // и получает вертикальную прокрутку, которой §2c.2 не допускает.
+  const opponents = opponentsOf(view);
+  const viewport = useViewportWidth();
+  const opponentSizes = {
+    '--card-small': `${opponentCardWidth(opponents.length, viewport)}px`,
+    '--card-mini': `${miniCardWidth(opponents.length, viewport)}px`,
+    '--avatar-size': `${opponentAvatar(opponents.length)}px`,
+  } as CSSProperties;
   return (
-    <div className="table-screen" data-total={cardsInPlay(view)} onClick={() => hasSelection && select(null)}>
-      <div className="opponents">
-        {opponentsOf(view).map((p) => (
+    <div className="table-screen" data-total={cardsInPlay(view)} data-shown={cardsShown(view)} onClick={() => hasSelection && select(null)}>
+      <div className="opponents" style={opponentSizes}>
+        {opponents.map((p) => (
           <PlayerFrame key={p.id} {...frame(p)}>
             {opponentExtras?.(p)}
           </PlayerFrame>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { apply } from '../src/apply';
+import type { StallRule } from '../src/types';
 import { act, c, cs, phase2State, pl } from './helpers';
 
 // Козырь — бубна. Места: A → B → C → A.
@@ -132,5 +133,70 @@ describe('phase 2: game over', () => {
     const s = act(phase2State({ players: [{ id: 'A', hand: 'JH' }, { id: 'B', hand: 'KC' }, { id: 'C', hand: '8C' }], trump: 'D', turn: 'A' }), 'B', { type: 'surrender' });
     expect(s.phase).toBe('over');
     expect(s.result).toEqual({ loserId: 'B', winnerId: null, outOrder: [], technical: true });
+  });
+});
+
+describe('phase 2: stalled battle', () => {
+  // Трое активных, козырь ♥, никто не может побить: заходы и взятия чередуются бесконечно.
+  const trap = (stallRule?: StallRule) =>
+    phase2State({ players: [{ id: 'A', hand: '3C' }, { id: 'B', hand: '' }, { id: 'C', hand: '2C' }], trump: 'H', turn: 'A', deckSize: 52, stallRule });
+
+  const runTrap = (stallRule?: StallRule) => {
+    let s = trap(stallRule);
+    s = act(s, 'A', { type: 'play', card: c('3C') });
+    s = act(s, 'B', { type: 'take' });
+    s = act(s, 'C', { type: 'play', card: c('2C') });
+    s = act(s, 'A', { type: 'take' });
+    s = act(s, 'B', { type: 'play', card: c('3C') });
+    expect(s.quietActions).toBe(5);
+    return apply(s, 'C', { type: 'take' }, 0);
+  };
+
+  it('two full circles without a beat force a vidbiy by default', () => {
+    const r = runTrap();
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
+    expect(pl(r.state, 'B').out).toBe(true);
+    expect(r.state.outOrder).toEqual(['B']);
+    expect(r.state.phase).toBe('phase2');
+    expect(r.state.turn).toBe('C');
+    expect(r.state.quietActions).toBe(0);
+  });
+
+  it('endGame rule: the player with most cards loses, ties go clockwise from the player to move', () => {
+    const r = runTrap('endGame');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.events).toContainEqual({ type: 'stall', rule: 'endGame' });
+    expect(r.state.phase).toBe('over');
+    expect(r.state.result).toEqual({ loserId: 'A', winnerId: null, outOrder: [], technical: false });
+  });
+
+  it('a beat resets the counter; leads and takes increase it', () => {
+    const s0 = phase2State({ players: [{ id: 'A', hand: 'JH 7C' }, { id: 'B', hand: 'QH' }, { id: 'C', hand: 'KC' }], trump: 'D', turn: 'A', table: [['9H', 'C']] });
+    s0.quietActions = 4;
+    expect(act(s0, 'A', { type: 'play', card: c('JH') }).quietActions).toBe(0);
+    const taken = apply(s0, 'A', { type: 'take' }, 0);
+    expect(taken.ok && taken.state.quietActions).toBe(5);
+    expect(taken.ok && taken.events.some((e) => e.type === 'stall')).toBe(false);
+    const lead = phase2State({ players: [{ id: 'A', hand: '7C' }, { id: 'B', hand: 'QH' }], trump: 'D', turn: 'A' });
+    expect(act(lead, 'A', { type: 'play', card: c('7C') }).quietActions).toBe(1);
+  });
+
+  it('a forced vidbiy that changes nothing ends the game by card count', () => {
+    // Козырь ♦, у всех разные масти без козырей: побить невозможно, и пустой руки на пустом столе не бывает.
+    let s = phase2State({ players: [{ id: 'A', hand: '2S' }, { id: 'B', hand: '4C' }, { id: 'C', hand: '7H' }], trump: 'D', turn: 'A', deckSize: 52 });
+    s = act(s, 'A', { type: 'play', card: c('2S') });
+    s = act(s, 'B', { type: 'take' });
+    s = act(s, 'C', { type: 'play', card: c('7H') });
+    s = act(s, 'A', { type: 'take' });
+    s = act(s, 'B', { type: 'play', card: c('4C') });
+    const r = apply(s, 'C', { type: 'take' }, 0);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.events).toContainEqual({ type: 'stall', rule: 'forcedVidbiy' });
+    expect(r.state.phase).toBe('over');
+    expect(r.state.result).toEqual({ loserId: 'A', winnerId: null, outOrder: [], technical: false });
   });
 });

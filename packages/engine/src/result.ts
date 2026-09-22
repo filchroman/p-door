@@ -20,7 +20,7 @@ export function surrender(s: GameState, p: PlayerState, events: GameEvent[]): Er
   return null;
 }
 
-function finish(s: GameState, result: GameResult, events: GameEvent[]): void {
+export function finish(s: GameState, result: GameResult, events: GameEvent[]): void {
   s.result = result;
   s.phase = 'over';
   s.watches = [];

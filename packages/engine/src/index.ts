@@ -1,1 +1,11 @@
 export * from './cards';
+export * from './rng';
+export * from './combat';
+export * from './types';
+export { createGame, canDeal, type GameSetup } from './setup';
+export { apply } from './apply';
+export { viewFor, type PlayerView, type PublicPlayer } from './view';
+export { legalMoves, type LegalMoves } from './legal';
+export { autoAction } from './auto';
+export * from './session';
+export { VAKHTA_GRACE_MS } from './vakhta';

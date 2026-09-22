@@ -1,15 +1,21 @@
 import { sameCard, type Card } from './cards';
 import { canBeat } from './combat';
-import { checkGameOver, markOut } from './result';
+import { checkGameOver, finish, markOut } from './result';
 import { activePlayers, findPlayer, nextActive, seatOrderFrom } from './state';
 import type { Action, ErrorCode, GameEvent, GameState, PlayerId, PlayerState } from './types';
+
+/** Столько полных кругов подряд без побития — и срабатывает правило затяжного боя. */
+export const STALL_CIRCLES = 2;
 
 export function applyPhase2(s: GameState, p: PlayerState, action: Action, events: GameEvent[]): ErrorCode | null {
   if (action.type !== 'play' && action.type !== 'take') return 'wrong_phase';
   if (s.turn !== p.id) return 'not_your_turn';
+  const isBeat = action.type === 'play' && s.table.length > 0;
   const error = action.type === 'play' ? play(s, p, action.card, events) : take(s, p, events);
   if (error) return error;
+  s.quietActions = isBeat ? 0 : s.quietActions + 1;
   settleTurn(s, events);
+  if (s.phase === 'phase2' && s.quietActions >= STALL_CIRCLES * activePlayers(s).length) resolveStall(s, p.id, events);
   return null;
 }
 
@@ -67,4 +73,34 @@ export function settleTurn(s: GameState, events: GameEvent[]): void {
     if (checkGameOver(s, events)) return;
     s.turn = nextActive(s, p.id);
   }
+}
+
+function resolveStall(s: GameState, lastActorId: PlayerId, events: GameEvent[]): void {
+  const toMove = s.turn;
+  s.quietActions = 0;
+  events.push({ type: 'stall', rule: s.stallRule });
+  if (s.stallRule === 'forcedVidbiy') {
+    const before = progressMark(s);
+    vidbiy(s, lastActorId, events);
+    settleTurn(s, events);
+    if (s.phase !== 'phase2' || progressMark(s) !== before) return;
+  }
+  endByCardCount(s, toMove, events);
+}
+
+/** Меняется, только если принудительный отбой что-то сделал: ушли карты, кто-то вышел или открыл прикуп. */
+function progressMark(s: GameState): string {
+  const prykups = s.players.reduce((n, p) => n + p.prykup.length, 0);
+  return `${s.discard.length}/${s.outOrder.length}/${prykups}`;
+}
+
+function endByCardCount(s: GameState, toMove: PlayerId, events: GameEvent[]): void {
+  const cardsOf = (id: PlayerId) => {
+    const pl = findPlayer(s, id)!;
+    return pl.hand.length + pl.prykup.length;
+  };
+  const active = seatOrderFrom(s, toMove).filter((id) => !findPlayer(s, id)!.out);
+  const most = Math.max(...active.map(cardsOf));
+  const loserId = active.find((id) => cardsOf(id) === most)!;
+  finish(s, { loserId, winnerId: s.outOrder[0] ?? null, outOrder: [...s.outOrder], technical: false }, events);
 }

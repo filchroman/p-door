@@ -1,6 +1,6 @@
 import { makeDeck, type Card, type DeckSize } from './cards';
 import { mulberry32, shuffle } from './rng';
-import type { GameState, PlayerId, PlayerState } from './types';
+import type { GameState, PlayerId, PlayerState, StallRule } from './types';
 
 export interface GameSetup {
   deckSize: DeckSize;
@@ -9,6 +9,7 @@ export interface GameSetup {
   dealerId: PlayerId;
   previousWinnerId: PlayerId | null;
   seed: number;
+  stallRule?: StallRule;
 }
 
 /** После прикупов и открытых карт в колоде должно остаться не меньше карт, чем игроков. */
@@ -52,5 +53,7 @@ export function createGame(setup: GameSetup): GameState {
     discard: [],
     outOrder: [],
     result: null,
+    stallRule: setup.stallRule ?? 'forcedVidbiy',
+    quietActions: 0,
   };
 }

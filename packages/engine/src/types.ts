@@ -2,6 +2,7 @@ import type { Card, DeckSize, Suit } from './cards';
 
 export type PlayerId = string;
 export type Phase = 'phase1' | 'penalty' | 'phase2' | 'over';
+export type StallRule = 'forcedVidbiy' | 'endGame';
 
 export interface PlayerState {
   id: PlayerId;
@@ -59,6 +60,8 @@ export interface GameState {
   discard: Card[];
   outOrder: PlayerId[];
   result: GameResult | null;
+  stallRule: StallRule;
+  quietActions: number; // подряд идущие действия фазы 2 без побития
 }
 
 export type Action =
@@ -86,7 +89,8 @@ export type GameEvent =
   | { type: 'vidbiy'; closerId: PlayerId }
   | { type: 'prykupOpened'; playerId: PlayerId }
   | { type: 'out'; playerId: PlayerId }
-  | { type: 'gameOver'; result: GameResult };
+  | { type: 'gameOver'; result: GameResult }
+  | { type: 'stall'; rule: StallRule };
 
 export type ErrorCode =
   | 'wrong_phase'

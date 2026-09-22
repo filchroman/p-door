@@ -1,7 +1,7 @@
 import type { DeckSize } from './cards';
 import { mulberry32 } from './rng';
 import type { GameSetup } from './setup';
-import type { GameResult, PlayerId } from './types';
+import type { GameResult, PlayerId, StallRule } from './types';
 
 export interface SessionState {
   losses: Record<PlayerId, number>;
@@ -42,7 +42,7 @@ export function vakhterVechora(se: SessionState): PlayerId | null {
   return null;
 }
 
-export function setupNextGame(se: SessionState, playerIds: PlayerId[], deckSize: DeckSize, seed: number): GameSetup {
+export function setupNextGame(se: SessionState, playerIds: PlayerId[], deckSize: DeckSize, seed: number, stallRule: StallRule = 'forcedVidbiy'): GameSetup {
   const random = mulberry32(seed ^ 0x9e3779b9);
   return {
     deckSize,
@@ -51,5 +51,6 @@ export function setupNextGame(se: SessionState, playerIds: PlayerId[], deckSize:
     dealerId: nextDealer(se, playerIds, random),
     previousWinnerId: se.lastWinnerId && playerIds.includes(se.lastWinnerId) ? se.lastWinnerId : null,
     seed,
+    stallRule,
   };
 }

@@ -1,6 +1,6 @@
 import { parseCard, type Card, type DeckSize, type Suit } from '../src/cards';
 import { apply } from '../src/apply';
-import type { Action, GameState, PlayerState } from '../src/types';
+import type { Action, GameState, PlayerState, StallRule } from '../src/types';
 
 export const c = parseCard;
 export const cs = (text: string): Card[] => text.split(/\s+/).filter(Boolean).map(parseCard);
@@ -25,6 +25,8 @@ function baseState(deckSize: DeckSize): GameState {
     discard: [],
     outOrder: [],
     result: null,
+    stallRule: 'forcedVidbiy',
+    quietActions: 0,
   };
 }
 
@@ -49,7 +51,7 @@ export function phase1State(o: { players: P1[]; deck: string; turn?: string; dra
 interface P2 { id: string; hand: string; prykup?: string; out?: boolean }
 
 /** table: [карта, кто положил], снизу вверх. */
-export function phase2State(o: { players: P2[]; trump: Suit; turn: string; table?: [string, string][]; deckSize?: DeckSize }): GameState {
+export function phase2State(o: { players: P2[]; trump: Suit; turn: string; table?: [string, string][]; deckSize?: DeckSize; stallRule?: StallRule }): GameState {
   const players: PlayerState[] = o.players.map((p) => ({
     id: p.id, prykup: cs(p.prykup ?? ''), stack: [], hand: cs(p.hand), fouls: 0, out: p.out ?? false,
   }));
@@ -61,6 +63,7 @@ export function phase2State(o: { players: P2[]; trump: Suit; turn: string; table
     trump: o.trump,
     table: (o.table ?? []).map(([card, by]) => ({ card: c(card), by })),
     outOrder: players.filter((p) => p.out).map((p) => p.id),
+    stallRule: o.stallRule ?? 'forcedVidbiy',
   };
 }
 

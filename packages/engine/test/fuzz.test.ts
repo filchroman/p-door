@@ -1,0 +1,115 @@
+import { describe, expect, it } from 'vitest';
+import {
+  apply, autoAction, cardToString, createGame, mulberry32, newSession, recordResult, setupNextGame, shuffle, viewFor,
+  type Action, type DeckSize, type GameState, type SessionState, type StallRule,
+} from '../src';
+
+function allCards(s: GameState): string[] {
+  return [
+    ...s.deck,
+    ...(s.drawn ? [s.drawn] : []),
+    ...s.players.flatMap((p) => [...p.prykup, ...p.stack, ...p.hand]),
+    ...s.table.map((t) => t.card),
+    ...s.discard,
+  ].map(cardToString);
+}
+
+function candidates(s: GameState, random: () => number): [string, Action][] {
+  const ids = s.players.map((p) => p.id);
+  const turn = s.players.find((p) => p.id === s.turn)!;
+  const out: [string, Action][] = [];
+  if (s.phase === 'phase1') {
+    if (random() < 0.1) for (const id of ids) out.push([id, { type: 'callVakhta' }]);
+    const moves: [string, Action][] = s.drawn
+      ? ids.map((to): [string, Action] => [turn.id, { type: 'placeDrawn', to }])
+      : [[turn.id, { type: 'draw' }], ...ids.map((to): [string, Action] => [turn.id, { type: 'moveOwnTop', to }])];
+    out.push(...shuffle(moves, random));
+  } else if (s.phase === 'penalty') {
+    for (const d of s.debts) {
+      const from = s.players.find((p) => p.id === d.from)!;
+      if (from.hand.length) out.push([d.from, { type: 'givePenalty', to: d.to, card: from.hand[Math.floor(random() * from.hand.length)] }]);
+    }
+    out.push([turn.id, { type: 'tick' }]);
+  } else if (s.phase === 'phase2') {
+    const plays = shuffle(turn.hand.map((card): [string, Action] => [turn.id, { type: 'play', card }]), random);
+    const take: [string, Action] = [turn.id, { type: 'take' }];
+    out.push(...(random() < 0.9 ? [...plays, take] : [take, ...plays]));
+  }
+  return out;
+}
+
+function playGame(s: GameState, random: () => number): GameState {
+  let now = 0;
+  for (let step = 0; step < 50_000 && s.phase !== 'over'; step++) {
+    now += 1000;
+    let moved = false;
+    for (const [id, action] of candidates(s, random)) {
+      const r = apply(s, id, action, now);
+      if (!r.ok) continue;
+      s = r.state;
+      moved = true;
+      break;
+    }
+    expect(moved, `stuck in ${s.phase}`).toBe(true);
+    const cards = allCards(s);
+    expect(cards).toHaveLength(s.deckSize);
+    expect(new Set(cards).size).toBe(s.deckSize);
+    for (const p of s.players) expect(viewFor(s, p.id, now).myHand).toEqual(p.hand);
+  }
+  return s;
+}
+
+describe('random games keep invariants', () => {
+  for (let seed = 1; seed <= 120; seed++) {
+    const players = 2 + (seed % 5);
+    const deckSize: DeckSize = seed % 3 === 0 ? 52 : 36;
+    it(`seed ${seed}: ${players} players, ${deckSize} cards, 3 games in a session`, () => {
+      const random = mulberry32(seed);
+      const ids = Array.from({ length: players }, (_, i) => `P${i}`);
+      let session: SessionState = newSession();
+      for (let game = 0; game < 3; game++) {
+        const stallRule: StallRule = seed % 2 === 0 ? 'endGame' : 'forcedVidbiy';
+        const s = playGame(createGame(setupNextGame(session, ids, deckSize, seed * 10 + game, stallRule)), random);
+        expect(s.phase).toBe('over');
+        expect(s.result).not.toBeNull();
+        session = recordResult(session, s.result!);
+      }
+    });
+  }
+});
+
+function autoPlay(s: GameState, random: () => number): GameState {
+  let now = 0;
+  for (let step = 0; step < 50_000 && s.phase !== 'over'; step++) {
+    now += 1000;
+    let moved = false;
+    for (const p of s.players) {
+      const action = autoAction(s, p.id, random);
+      if (!action) continue;
+      const r = apply(s, p.id, action, now);
+      if (r.ok) {
+        s = r.state;
+        moved = true;
+        break;
+      }
+    }
+    if (!moved) {
+      const r = apply(s, s.turn, { type: 'tick' }, now);
+      if (r.ok) s = r.state;
+    }
+  }
+  return s;
+}
+
+describe('games where every player times out still end', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const players = 2 + (seed % 5);
+    const deckSize: DeckSize = seed % 3 === 0 ? 52 : 36;
+    const stallRule: StallRule = seed % 2 === 0 ? 'endGame' : 'forcedVidbiy';
+    it(`seed ${seed}: ${players} players, ${stallRule}`, () => {
+      const ids = Array.from({ length: players }, (_, i) => `P${i}`);
+      const s = autoPlay(createGame(setupNextGame(newSession(), ids, deckSize, seed, stallRule)), mulberry32(seed));
+      expect(s.phase).toBe('over');
+    });
+  }
+});

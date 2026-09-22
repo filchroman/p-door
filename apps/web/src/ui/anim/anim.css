@@ -1,0 +1,5 @@
+.flip-in { position: relative; transform-style: preserve-3d; }
+.flip-in__front, .flip-in__back { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-in__back { position: absolute; inset: 0; transform: rotateY(180deg); }
+.flip-in__back .card { width: 100%; }
+.table-fan, .hand, .trump-badge, .drawn-slot { perspective: 700px; }

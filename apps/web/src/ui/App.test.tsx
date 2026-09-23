@@ -33,3 +33,16 @@ describe('App', () => {
     expect(screen.getByTestId('player-p2')).toHaveTextContent(ru.botNames[1]);
   });
 });
+
+describe('прокрутка на столе', () => {
+  it('во время партии страница зафиксирована (класс is-game на body), на главной — нет', async () => {
+    useAppStore.setState({ preload: () => Promise.resolve() });
+    render(<App />);
+    expect(document.body).not.toHaveClass('is-game');
+    fireEvent.click(screen.getByRole('button', { name: ru.home.train }));
+    fireEvent.click(screen.getByRole('button', { name: ru.home.play }));
+    await vi.waitFor(() => expect(document.body).toHaveClass('is-game'));
+    act(() => useAppStore.getState().goHome());
+    expect(document.body).not.toHaveClass('is-game');
+  });
+});

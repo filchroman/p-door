@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { ru } from '../i18n/ru';
 import { useAppStore } from '../store/appStore';
 import { DebugPanel } from './debug/DebugPanel';
@@ -16,6 +17,11 @@ function useDebugAllowed(): boolean {
 export function App() {
   const screen = useAppStore((s) => s.screen);
   const debugAllowed = useDebugAllowed();
+  // На столе страница не прокручивается: палец тянет карту, а не экран (и не «резинку» iOS).
+  useEffect(() => {
+    document.body.classList.toggle('is-game', screen === 'game');
+    return () => document.body.classList.remove('is-game');
+  }, [screen]);
   return (
     <main className="app-column">
       {screen === 'home' && <HomeScreen />}

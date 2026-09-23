@@ -24,6 +24,8 @@ interface WebApp {
   expand(): void;
   openTelegramLink(url: string): void;
   shareMessage?(id: string, callback?: (sent: boolean) => void): void;
+  /** Bot API 7.7+: свайп вниз больше не сворачивает Mini App — жест нужен картам. */
+  disableVerticalSwipes?(): void;
   isVersionAtLeast?(version: string): boolean;
   colorScheme?: 'light' | 'dark';
 }
@@ -68,6 +70,8 @@ export function telegramReady(): void {
   try {
     app.ready();
     app.expand();
+    // Иначе перетаскивание карты вниз сворачивает приложение вместо хода.
+    app.disableVerticalSwipes?.();
   } catch {
     // старый клиент Telegram — без развёртывания
   }

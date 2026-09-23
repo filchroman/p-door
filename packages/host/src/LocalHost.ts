@@ -81,8 +81,11 @@ export class LocalHost {
   /** Отклонённых автоматических шагов подряд; любое применённое действие обнуляет. */
   private stuckSteps = 0;
   private botSpeed: BotSpeed;
-  private humanId: PlayerId | null;
+  /** Места, за которыми сидят люди; остальные — боты. */
+  private humans: Set<PlayerId>;
   private autopilot = false;
+  /** Люди, которые сейчас не на связи: за них ходит автоход, пока они не вернутся. */
+  private away = new Set<PlayerId>();
   private botTimers = new Map<PlayerId, TimerHandle>();
   /** Ключ — таймер; значение — за какого игрока и по какому окну был запланирован вызов. */
   private vakhtaTimers = new Map<TimerHandle, { playerId: PlayerId; watchId: number }>();
@@ -103,7 +106,7 @@ export class LocalHost {
     this.shuffleDeck = options.shuffleDeck ?? cryptoShuffledDeck;
     this.botSpeed = options.botSpeed ?? 1;
     this.initialState = options.initialState;
-    this.humanId = options.seats.find((seat) => !seat.isBot)?.id ?? null;
+    this.humans = new Set(options.seats.filter((seat) => !seat.isBot).map((seat) => seat.id));
   }
 
   // ——— публичный API ———
@@ -157,7 +160,7 @@ export class LocalHost {
   }
 
   getSeats(): SeatInfo[] {
-    return this.seats.map((seat) => ({ ...seat, isBot: seat.id !== this.humanId }));
+    return this.seats.map((seat) => ({ ...seat, isBot: !this.humans.has(seat.id) }));
   }
 
   getLastEvents(): GameEvent[] {
@@ -205,11 +208,12 @@ export class LocalHost {
   }
 
   isBotControlled(id: PlayerId): boolean {
-    return id !== this.humanId || this.autopilot;
+    return !this.humans.has(id) || this.autopilot || this.away.has(id);
   }
 
+  /** Отладка локальной игры: единственный человек пересаживается на место `id`. */
   setHumanSeat(id: PlayerId | null): void {
-    this.humanId = id;
+    this.humans = new Set(id === null ? [] : [id]);
     // Место `id` теперь человек: снимаем уже запланированные вызовы Вахты ботом за него.
     this.cancelVakhtaTimersFor(id);
     if (this.state && this.status === 'playing') this.reschedule();
@@ -218,9 +222,26 @@ export class LocalHost {
 
   setAutopilot(on: boolean): void {
     this.autopilot = on;
-    // Автопилот выключен — место человека снова под его контролем, отменяем висящие вызовы бота за него.
-    if (!on) this.cancelVakhtaTimersFor(this.humanId);
+    // Автопилот выключен — места людей снова под их контролем, отменяем висящие вызовы бота за них.
+    if (!on) for (const id of this.humans) this.cancelVakhtaTimersFor(id);
     if (this.state && this.status === 'playing') this.reschedule();
+  }
+
+  /**
+   * Сервер: человек пропал со связи — за него ходит автоход, чтобы стол не ждал; вернулся — место
+   * снова его. Плашка «переподключается» — забота комнаты, хосту важна только управляемость.
+   */
+  setAway(id: PlayerId, on: boolean): void {
+    if (on) this.away.add(id);
+    else {
+      this.away.delete(id);
+      this.cancelVakhtaTimersFor(id);
+    }
+    if (this.state && this.status === 'playing') this.reschedule();
+  }
+
+  isAway(id: PlayerId): boolean {
+    return this.away.has(id);
   }
 
   setBotSpeed(speed: BotSpeed): void {

@@ -1,0 +1,26 @@
+{
+  "name": "@vakhta/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --packages=external",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.4",
+    "@vakhta/engine": "*",
+    "@vakhta/host": "*",
+    "@vakhta/protocol": "*",
+    "fastify": "^5.12.5",
+    "grammy": "^1.46.0",
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15"
+  }
+}

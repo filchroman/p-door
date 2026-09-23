@@ -5,6 +5,7 @@ export default defineConfig({
     projects: [
       { test: { name: 'engine', include: ['packages/engine/test/**/*.test.ts'] } },
       { test: { name: 'host', include: ['packages/host/test/**/*.test.ts'] } },
+      { test: { name: 'server', include: ['apps/server/test/**/*.test.ts'] } },
       'apps/web',
     ],
   },

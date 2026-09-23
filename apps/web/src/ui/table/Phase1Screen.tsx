@@ -26,6 +26,7 @@ export function Phase1Screen() {
   const pile = (player: PublicPlayer) => (
     <Pile
       player={player}
+      mine={player.id === view.me}
       targetable={selection !== null}
       onTarget={() => placeOn(player.id)}
       topDraggable={player.id === view.me && canMoveTop}

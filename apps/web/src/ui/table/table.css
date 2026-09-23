@@ -121,6 +121,7 @@
 /* Своя стопка в фазе 1 — карта, которой я хожу: она читаемого размера, как рука. */
 .my-area .pile__stack { --card-w: var(--card-big); }
 .draggable { touch-action: none; cursor: grab; }
+.draggable.is-idle { cursor: default; }
 .draggable.is-selected .card::after, .draggable.is-dragging .card::after { opacity: 1; }
 .draggable.is-dragging { position: relative; z-index: 40; cursor: grabbing; --shadow-opacity: 1; }
 

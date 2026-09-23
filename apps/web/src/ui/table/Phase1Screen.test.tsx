@@ -185,3 +185,17 @@ describe('Phase1Screen', () => {
     expect(screen.getByRole('img', { name: '10♠' })).toBeInTheDocument();
   });
 });
+
+describe('своя стопка при вытягивании (баг заказчика: «прыгают карты»)', () => {
+  it('верхняя карта — один и тот же элемент до и после вытягивания, заново она не появляется', () => {
+    const players = [{ id: 'A', stack: '6C 9H' }, { id: 'B', stack: 'QC' }];
+    const { container, rerender } = show(phase1State({ players, deck: 'AS 8C 9D' }));
+    const before = container.querySelector('.my-area .pile__stack .animated-card');
+    expect(before).not.toBeNull();
+    // Вытянул: перекладывать свою верхнюю сейчас нельзя, но карта от этого не пересоздаётся.
+    resetStore({ update: makeUpdate(phase1State({ players, deck: '8C 9D', drawn: 'AS' }), 'A'), send });
+    rerender(<Phase1Screen />);
+    const after = container.querySelector('.my-area .pile__stack .animated-card');
+    expect(after).toBe(before);
+  });
+});

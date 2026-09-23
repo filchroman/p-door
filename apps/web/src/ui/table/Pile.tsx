@@ -11,6 +11,8 @@ import { STACK_CAP, zoneProps } from './zones';
 
 export interface PileProps {
   player: PublicPlayer;
+  /** Моя стопка: верхняя карта всегда интерактивный элемент (включён он или нет — флагом). */
+  mine?: boolean;
   targetable: boolean;
   onTarget(): void;
   topDraggable: boolean;
@@ -21,7 +23,7 @@ export interface PileProps {
 }
 
 /** Открытая стопка фазы 1: ровно stackCount карт (видна верхняя), высота и закрытый прикуп. */
-export function Pile({ player, targetable, onTarget, topDraggable, topSelected, onTopTap, onTopDrop, accept }: PileProps) {
+export function Pile({ player, mine = false, targetable, onTarget, topDraggable, topSelected, onTopTap, onTopDrop, accept }: PileProps) {
   const top = player.stackTop;
   const topKey = top ? cardKey(top) : '';
   // Карта не появляется на стопке из ниоткуда: она прилетает оттуда, где лежала (спека §2c.1).
@@ -50,10 +52,10 @@ export function Pile({ player, targetable, onTarget, topDraggable, topSelected, 
         {top && (
           <div className="stack-layer" style={layerOffset(under)}>
             <FlyFrom key={topKey} from={flight} ghost={<PlayingCard card={top} />}>
-              {topDraggable ? (
-                <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} enter={!flight} />
+              {mine ? (
+                <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} enter={!flight} enabled={topDraggable} carried />
               ) : (
-                <AnimatedCard id={topKey} enter={!flight}>
+                <AnimatedCard id={topKey} enter={!flight} carried>
                   <PlayingCard card={top} />
                 </AnimatedCard>
               )}

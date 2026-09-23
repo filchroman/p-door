@@ -4,9 +4,9 @@ import { ru } from '../i18n/ru';
 import { testHostOptions } from '../test/hostOptions';
 import { c, phase1State, phase2State } from '../test/states';
 import { fakeClient, makeUpdate, resetStore } from '../test/updates';
-import { EXIT_MS } from '../ui/anim/motion';
+import { DWELL_MS, EXIT_MS } from '../ui/anim/motion';
 import { useAppStore } from './appStore';
-import { CAPTION_FADE_MS, CAPTION_MS, STEP_MS } from './updatePump';
+import { CAPTION_FADE_MS, CAPTION_MS, CATCHUP_PAUSE_MS, STEP_MS } from './updatePump';
 
 const setup: MatchSetup = { nick: 'Вася', playerCount: 3, settings: { deckSize: 36, turnSeconds: 0, stallRule: 'forcedVidbiy' } };
 const start = () =>
@@ -254,5 +254,81 @@ describe('app store', () => {
     release();
     await started;
     expect(useAppStore.getState()).toMatchObject({ screen: 'home', client: null });
+  });
+});
+
+describe('«побил → пауза → отбой» (§2c.3)', () => {
+  /** happy-dom не считает раскладку: место карты в руке ставим руками, как сделал бы браузер. */
+  function placeMyCard(key: string): void {
+    const zone = document.createElement('div');
+    zone.dataset.zone = 'hand-p0';
+    const card = document.createElement('div');
+    card.dataset.card = key;
+    card.getBoundingClientRect = () =>
+      ({ left: 100, top: 600, right: 184, bottom: 726, width: 84, height: 126, x: 100, y: 600, toJSON: () => ({}) }) as DOMRect;
+    zone.append(card);
+    document.body.append(zone);
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('the closing card first lands on the table, dwells, and only then the table sweeps away', async () => {
+    const onTable = phase2State({
+      players: [{ id: 'p0', hand: '8D' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      table: [['6D', 'p1'], ['7D', 'p2']],
+      trump: 'D',
+      turn: 'p0',
+    });
+    const closed = phase2State({
+      players: [{ id: 'p0', hand: '' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      trump: 'D',
+      turn: 'p0',
+      discard: '6D 7D 8D',
+    });
+    const { client, emit } = fakeClient(makeUpdate(onTable, 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    placeMyCard('8D');
+    emit(makeUpdate(closed, 'p0', { events: [{ type: 'played', playerId: 'p0', card: c('8D') }, { type: 'vidbiy', closerId: 'p0' }] }));
+    const sweep = useAppStore.getState().sweep!;
+    // Сначала карта долетает: слой отбоя стоит на месте, а сыгранная карта в нём летит из руки.
+    expect(sweep.cards).toEqual([c('6D'), c('7D'), c('8D')]);
+    expect(sweep.landing).toMatchObject({ key: '8D', from: { x: 100, y: 600 } });
+    vi.advanceTimersByTime(sweep.landing!.ms + DWELL_MS - 1);
+    expect(useAppStore.getState().sweep!.landing).not.toBeNull();
+    // Потом пауза кончилась — стол сметается, и только по концу сметания слой исчезает.
+    vi.advanceTimersByTime(1);
+    expect(useAppStore.getState().sweep).toMatchObject({ seq: sweep.seq, landing: null, ms: EXIT_MS });
+    vi.advanceTimersByTime(EXIT_MS);
+    expect(useAppStore.getState().sweep).toBeNull();
+  });
+
+  it('holds the next queued update until the whole sequence has played', async () => {
+    const onTable = phase2State({
+      players: [{ id: 'p0', hand: '8D' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      table: [['6D', 'p1'], ['7D', 'p2']],
+      trump: 'D',
+      turn: 'p0',
+    });
+    const closed = phase2State({
+      players: [{ id: 'p0', hand: '' }, { id: 'p1', hand: 'QC' }, { id: 'p2', hand: 'KD' }],
+      trump: 'D',
+      turn: 'p0',
+      discard: '6D 7D 8D',
+    });
+    const { client, emit } = fakeClient(makeUpdate(onTable, 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    placeMyCard('8D');
+    emit(makeUpdate(closed, 'p0', { events: [{ type: 'played', playerId: 'p0', card: c('8D') }, { type: 'vidbiy', closerId: 'p0' }] }));
+    emit(makeUpdate(closed, 'p0', { events: [{ type: 'played', playerId: 'p1', card: c('QC') }] }));
+    const total = useAppStore.getState().sweep!.landing!.ms + DWELL_MS + EXIT_MS;
+    vi.advanceTimersByTime(total);
+    // Следующий срез ещё не показан: сметание только что закончилось.
+    expect(useAppStore.getState().update!.events[0]).toMatchObject({ type: 'played', playerId: 'p0' });
+    vi.advanceTimersByTime(CATCHUP_PAUSE_MS);
+    expect(useAppStore.getState().update!.events[0]).toMatchObject({ type: 'played', playerId: 'p1' });
   });
 });

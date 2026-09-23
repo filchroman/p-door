@@ -27,7 +27,7 @@ describe('TableFan: how a card leaves the table', () => {
 
   it('a vidbiy sweeps the table away in its own layer: the zone is empty at once, then nothing is left', async () => {
     const { container, rerender } = render(<TableFan table={table(['9H', 'JH'])} />);
-    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300 } }));
+    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300, landing: null } }));
     rerender(<TableFan table={[]} />);
     await settle();
     // Зона стола пуста уже сейчас — улетающие карты живут отдельным слоем поверх неё.
@@ -44,7 +44,7 @@ describe('TableFan: how a card leaves the table', () => {
 
   it('a slice that arrives mid-sweep leaves no ghosts: the zone shows the new table, the layer only the old one', async () => {
     const { container, rerender } = render(<TableFan table={table(['9H', 'JH'])} />);
-    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300 } }));
+    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300, landing: null } }));
     rerender(<TableFan table={[]} />);
     await settle();
     // Следующий срез: кто-то уже положил карту на чистый стол, отбой ещё в полёте.

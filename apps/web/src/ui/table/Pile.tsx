@@ -7,7 +7,6 @@ import { AnimatedCard } from '../anim/AnimatedCard';
 import { FlyFrom } from '../anim/FlyFrom';
 import { DraggableCard } from './DraggableCard';
 import { layerOffset } from './layers';
-import { Prykup } from './Prykup';
 import { STACK_CAP, zoneProps } from './zones';
 
 export interface PileProps {
@@ -61,9 +60,8 @@ export function Pile({ player, targetable, onTarget, topDraggable, topSelected, 
             </FlyFrom>
           </div>
         )}
+        <span className="count-badge pile__count">{player.stackCount}</span>
       </div>
-      <span className="pile__count">{player.stackCount}</span>
-      <Prykup owner={player.id} count={player.prykupCount} />
     </div>
   );
 }

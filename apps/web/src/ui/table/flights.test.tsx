@@ -70,7 +70,7 @@ describe('перелёты на приёмниках', () => {
     resetStore({
       update: makeUpdate(state, 'A'),
       motionEnabled: true,
-      flights: { ...NO_FLIGHTS, hand: { from: from(140, 300), cards: ['QC'], count: 1 } },
+      flights: { ...NO_FLIGHTS, hand: { from: from(140, 300), seq: 1, cards: ['QC'], count: 1 } },
     });
     render(<Hand />);
     // Летит ровно прилетевшая карта, а не весь веер.
@@ -81,7 +81,7 @@ describe('перелёты на приёмниках', () => {
     resetStore({
       update: makeUpdate(phase2State({ players: [{ id: 'A', hand: '9H' }, { id: 'B', hand: 'KC' }], trump: 'D', turn: 'B' }), 'A'),
       motionEnabled: true,
-      flights: { ...NO_FLIGHTS, hands: { B: { from: from(140, 300), cards: [], count: 2 } } },
+      flights: { ...NO_FLIGHTS, hands: { B: { from: from(140, 300), seq: 1, cards: [], count: 2 } } },
     });
     const player = { id: 'B', prykupCount: 0, stackTop: null, stackCount: 5, handCount: 5, fouls: 0, out: false };
     const { container } = render(<OpponentHand player={player} cards={null} />);

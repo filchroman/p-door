@@ -3,7 +3,6 @@ import { useAppStore } from '../../store/appStore';
 import { Hand } from './Hand';
 import { legalFromView } from './legal';
 import { OpponentHand } from './OpponentHand';
-import { Prykup } from './Prykup';
 import { TableFan } from './TableFan';
 import { TableScreen } from './TableScreen';
 
@@ -14,18 +13,12 @@ export function Phase2Screen() {
   const send = useAppStore((s) => s.send);
   const { view } = update;
   const legal = legalFromView(view);
-  const me = view.players.find((p) => p.id === view.me)!;
   const handInModal = view.phase === 'penalty' && view.myDebts.length > 0;
   return (
     <TableScreen
       opponentExtras={(p) => <OpponentHand player={p} cards={allHands?.[p.id] ?? null} />}
       center={<TableFan table={view.table} />}
-      mine={
-        <>
-          {!handInModal && <Hand />}
-          <Prykup owner={me.id} count={me.prykupCount} />
-        </>
-      }
+      mine={!handInModal && <Hand />}
       action={
         <button type="button" className="btn btn--primary btn--big" disabled={!legal.canTake} onClick={() => send({ type: 'take' })}>
           {ru.table.take}

@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 export interface SegmentedOption<T extends string | number> {
   value: T;
   label: string;
@@ -13,9 +15,16 @@ export interface SegmentedProps<T extends string | number> {
   variant?: 'pills' | 'tiles';
 }
 
+/**
+ * Переключатель. У «пилюль» выделение — один ползунок, который переезжает под выбранный пункт
+ * (transform по `--index`, спека §2c.3); у плиток выбранная слегка «выпрыгивает».
+ */
 export function Segmented<T extends string | number>({ label, value, options, onChange, variant = 'pills' }: SegmentedProps<T>) {
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const style = { '--index': index, '--count': options.length } as CSSProperties;
   return (
-    <div className={`segmented segmented--${variant}`} role="radiogroup" aria-label={label}>
+    <div className={`segmented segmented--${variant}`} role="radiogroup" aria-label={label} style={style}>
+      {variant === 'pills' && <span className="segmented__thumb" aria-hidden="true" />}
       {options.map((option) => {
         const active = option.value === value;
         return (

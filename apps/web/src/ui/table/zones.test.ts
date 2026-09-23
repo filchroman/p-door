@@ -45,16 +45,16 @@ describe('zones', () => {
   it('accepts a capped rendering as long as the declared number stays exact', () => {
     // phase1State кладёт в игру только эти 11 карт — тестовое состояние неполное, поэтому сумму сверяем с зонами.
     document.body.innerHTML =
-      zone('deck', 3) + zone('drawn', 1) + zone('stack-A', 2) + zone('prykup-A', 2) + zone('stack-B', 1) + zone('prykup-B', 2);
+      zone('deck', 3) + zone('drawn', 1) + zone('stack-A', 2) + zone('prykup-A', 0, 2, 0) + zone('stack-B', 1) + zone('prykup-B', 0, 2, 0);
     expect(zoneMismatches(document.body, view).filter((m) => !m.startsWith('total'))).toEqual([]);
     // Число обязано быть настоящим: объявить «10», когда в срезе 2, — ошибка даже при верном показе.
-    document.body.innerHTML = zone('prykup-A', 2, 10, 2);
+    document.body.innerHTML = zone('prykup-A', 0, 10, 0);
     expect(zoneMismatches(document.body, view).some((m) => m.startsWith('prykup-A'))).toBe(true);
   });
 
   it('reports an extra card, a missing zone, a duplicated zone and a wrong declaration', () => {
     document.body.innerHTML =
-      zone('deck', 4, 3) + zone('drawn', 1) + zone('stack-A', 2) + zone('stack-A', 2) + zone('prykup-A', 2, 1) + zone('prykup-B', 2);
+      zone('deck', 4, 3) + zone('drawn', 1) + zone('stack-A', 2) + zone('stack-A', 2) + zone('prykup-A', 1, 2, 0) + zone('prykup-B', 0, 2, 0);
     const problems = zoneMismatches(document.body, view);
     expect(problems.some((m) => m.startsWith('deck'))).toBe(true);
     expect(problems.some((m) => m.startsWith('stack-A'))).toBe(true);

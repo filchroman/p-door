@@ -39,8 +39,10 @@ describe('Phase1Screen', () => {
     expect(count('drawn')).toBe(1);
     expect(count('stack-A')).toBe(3);
     expect(count('stack-B')).toBe(1);
-    expect(count('prykup-A')).toBe(2);
-    expect(count('prykup-B')).toBe(3);
+    // Прикуп — только цифрой на рамке: карт в его зоне нет, число объявлено точно.
+    expect(count('prykup-A')).toBe(0);
+    expect(count('prykup-B')).toBe(0);
+    expect(container.querySelector('[data-zone="prykup-B"]')).toHaveTextContent('3');
     expect(zoneMismatches(container, makeUpdate(state, 'A').view).filter((m) => !m.startsWith('total'))).toEqual([]);
     expect(screen.getByTestId('pile-A')).toHaveTextContent('3');
   });

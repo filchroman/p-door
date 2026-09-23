@@ -46,8 +46,12 @@ export class UpdatePump<T> {
   private queue: T[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
 
+  /**
+   * `show` может вернуть, сколько миллисекунд этому срезу нужно на экране (например,
+   * «побил → пауза → отбой» длиннее одного перелёта): следующий срез придёт не раньше.
+   */
   constructor(
-    private readonly show: (item: T, speed: number) => void,
+    private readonly show: (item: T, speed: number) => number | void,
     private readonly animated: () => boolean,
   ) {}
 
@@ -75,10 +79,10 @@ export class UpdatePump<T> {
     const next = this.queue.shift();
     if (next === undefined) return;
     const backlog = this.queue.length + 1;
-    this.show(next, animSpeedFor(backlog));
+    const hold = this.show(next, animSpeedFor(backlog)) ?? 0;
     this.timer = setTimeout(() => {
       this.timer = null;
       this.pump();
-    }, stepDelay(backlog));
+    }, Math.max(stepDelay(backlog), hold + CATCHUP_PAUSE_MS));
   }
 }

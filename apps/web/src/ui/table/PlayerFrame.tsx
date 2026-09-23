@@ -5,6 +5,7 @@ import { ru } from '../../i18n/ru';
 import { Countdown } from '../Countdown';
 import '../effects/effects.css';
 import type { StatusKey } from './derive';
+import { PrykupChip } from './PrykupChip';
 
 export interface PlayerFrameProps {
   seat: SeatInfo;
@@ -22,15 +23,17 @@ export interface PlayerFrameProps {
   captionSeq: number | null;
   /** Сколько подпись висит до угасания (спека §2c.1: ≥ 900 мс). */
   captionMs: number | null;
+  /** Сдвиг места по дуге рассадки (`--arc-y`, спека §2c.3). */
+  style?: CSSProperties;
   children?: ReactNode;
 }
 
-export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, caughtSeq, outSeq, caption, captionSeq, captionMs, children }: PlayerFrameProps) {
+export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, caughtSeq, outSeq, caption, captionSeq, captionMs, style, children }: PlayerFrameProps) {
   const classes = ['player-frame', status === 'turn' ? 'is-turn' : '', caption ? 'is-acting' : '', player.out ? 'is-out' : '']
     .filter(Boolean)
     .join(' ');
   return (
-    <div className={classes} data-testid={`player-${seat.id}`}>
+    <div className={classes} style={style} data-testid={`player-${seat.id}`}>
       <div className="plaque-slot">{status && <span className={`plaque plaque--${status}`}>{ru.status[status]}</span>}</div>
       {/* Аватарка и имя — один узкий столбик: у соперника карты встают справа от него, а не под
           ним, и рамка занимает одну строку вместо трёх (спека §2c.2). */}
@@ -39,6 +42,7 @@ export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, cau
           <div key={caughtSeq ?? 'calm'} className={caughtSeq !== null ? 'avatar-shake' : 'avatar-still'}>
             <span className="avatar" aria-hidden="true">{seat.avatar}</span>
           </div>
+          <PrykupChip owner={player.id} count={player.prykupCount} />
           {player.fouls > 0 && (
             <span className="foul-badge" title={ru.table.fouls(player.fouls)}>
               {player.fouls}

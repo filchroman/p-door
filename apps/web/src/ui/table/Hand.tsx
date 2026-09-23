@@ -7,6 +7,7 @@ import { AnimatedCard } from '../anim/AnimatedCard';
 import { AnimatedGroup } from '../anim/AnimatedGroup';
 import { FlipIn } from '../anim/FlipIn';
 import { FlyFrom } from '../anim/FlyFrom';
+import { STAGGER_MS } from '../anim/motion';
 import type { HandFlight } from '../anim/flights';
 import type { Origin } from '../anim/origins';
 import { useViewportWidth } from '../useViewport';
@@ -41,12 +42,14 @@ interface HandCardProps {
   flipIn: boolean;
   /** Откуда карта прилетела в руку: со стола («взял нижнюю») или из прикупа (спека §2c.1). */
   from: Origin | null;
+  /** Каскад прикупа: карты вылетают по одной (спека §2c.3). */
+  delayMs: number;
   /** Веер перестраивает контейнер: карта не обмеряет себя, но свой layoutId сохраняет. */
   carried: boolean;
   onPlay(code: string): void;
 }
 
-const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, from, carried, onPlay }: HandCardProps) {
+const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, from, delayMs, carried, onPlay }: HandCardProps) {
   const card = useMemo(() => parseCard(code), [code]);
   const drag = useDrag({
     onTap: () => {
@@ -60,7 +63,7 @@ const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipI
   const classes = ['hand-card', legal ? 'is-legal' : '', dim ? 'is-dim' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} data-legal={legal} style={{ '--angle': `${angle}deg` } as CSSProperties} {...drag.handlers}>
-      <FlyFrom from={from} ghost={<PlayingCard card={card} />}>
+      <FlyFrom from={from} delayMs={delayMs} ghost={<PlayingCard card={card} />}>
         <AnimatedCard id={code} carried={carried} enter={!flipIn && !from}>
           <FlipIn flip={flipIn}>
             <PlayingCard card={card} />
@@ -109,6 +112,7 @@ export const Hand = memo(function Hand() {
           myTurn={myTurn}
           flipIn={flipIn}
           from={handFlight && handFlight.cards.includes(code) ? handFlight.from : null}
+          delayMs={handFlight ? Math.max(0, handFlight.cards.indexOf(code)) * STAGGER_MS : 0}
           carried={big}
           onPlay={onPlay}
         />

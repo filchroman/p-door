@@ -1,5 +1,5 @@
 import type { TableCard } from '@vakhta/engine';
-import type { CSSProperties } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { cardKey } from '../../cards/labels';
 import { PlayingCard } from '../../cards/PlayingCard';
 import { ru } from '../../i18n/ru';
@@ -44,17 +44,51 @@ export function TableFan({ table }: { table: TableCard[] }) {
   );
 }
 
+/** Куда улетает отбой, если стопки отбоя на экране ещё нет: вправо и чуть вверх, за край колонки. */
+const FALLBACK_SWEEP = { x: 104, y: -22, s: 1 };
+
 /**
- * Отбой: ушедший стол улетает отдельным слоем — карты только на transform и opacity, слой живёт
- * ровно свою анимацию и снимается стором, поэтому после отбоя на столе не остаётся ничего.
+ * Отбой (спека §2c.3): сначала закрывающая карта долетает из руки и ложится на стол
+ * (`sweep.landing`), стол стоит; потом, когда стор снимает `landing`, весь стол улетает в стопку
+ * отбоя справа. Слой живёт ровно свою анимацию и снимается стором — в зоне стола ничего не остаётся.
+ * Карты только на transform и opacity (§2a).
  */
 function SweptTable({ sweep }: { sweep: TableSweep }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [target, setTarget] = useState(FALLBACK_SWEEP);
+  // Куда лететь — к стопке отбоя: одна пара обмеров на весь отбой, а не на кадр.
+  useLayoutEffect(() => {
+    const me = ref.current;
+    const pile = document.querySelector<HTMLElement>('.discard-pile__stack');
+    if (!me || !pile) return;
+    const a = me.getBoundingClientRect();
+    const b = pile.getBoundingClientRect();
+    if (a.width === 0 || b.width === 0) return;
+    setTarget({
+      x: Math.round(b.left + b.width / 2 - (a.left + a.width / 2)),
+      y: Math.round(b.top + b.height / 2 - (a.top + a.height / 2)),
+      s: Math.max(0.3, b.width / Math.max(1, a.width)),
+    });
+  }, []);
+  const landing = sweep.landing;
+  const style = {
+    '--sweep-ms': `${sweep.ms}ms`,
+    '--sweep-x': `${target.x}px`,
+    '--sweep-y': `${target.y}px`,
+    '--sweep-s': target.s,
+  } as CSSProperties;
   return (
-    <div className="table-sweep" aria-hidden style={{ '--sweep-ms': `${sweep.ms}ms` } as CSSProperties}>
+    <div ref={ref} className={`table-sweep${landing ? ' is-landing' : ''}`} aria-hidden style={style}>
       {sweep.cards.map((card, i) => (
-        <div key={cardKey(card)} className={fanClass(i, sweep.cards.length)} style={{ '--i': i } as CSSProperties}>
+        <FlyFrom
+          key={cardKey(card)}
+          from={landing && cardKey(card) === landing.key ? landing.from : null}
+          ghost={<PlayingCard card={card} />}
+          className={fanClass(i, sweep.cards.length)}
+          style={{ '--i': i } as CSSProperties}
+        >
           <PlayingCard card={card} />
-        </div>
+        </FlyFrom>
       ))}
     </div>
   );

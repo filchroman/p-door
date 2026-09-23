@@ -15,7 +15,7 @@
   position: absolute;
   /* will-change живёт ровно столько, сколько сам элемент — он существует только на время полёта (§2a). */
   will-change: transform;
-  animation: card-fly var(--fly-ms, 440ms) var(--ease-fly) both;
+  animation: card-fly var(--fly-ms, 440ms) var(--ease-fly) var(--fly-delay, 0ms) both;
 }
 /*
  * Кривая перелёта. Прежняя var(--ease-out) = cubic-bezier(0.22, 1, 0.36, 1) уводила карту на 55%

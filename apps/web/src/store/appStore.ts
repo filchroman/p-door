@@ -1,11 +1,12 @@
-import type { Card, DeckSize, PlayerId } from '@vakhta/engine';
+import { cardToString as cardKeyOf, type Card, type DeckSize, type PlayerId } from '@vakhta/engine';
 import { create } from 'zustand';
 import { preloadDeck } from '../cards/preload';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import type { BotSpeed, LogEntry } from '../client/debug';
 import type { AppClient, ClientUpdate, Intent } from '../client/types';
 import { NO_FLIGHTS, flightsFor, type Flights } from '../ui/anim/flights';
-import { sweepMs } from '../ui/anim/motion';
+import { DWELL_MS, flyMs, sweepMs } from '../ui/anim/motion';
+import type { Origin } from '../ui/anim/origins';
 import { prefersReducedMotion } from '../ui/anim/reducedMotion';
 import { VIBRATE_ERROR, vibrate } from '../ui/haptics';
 import {
@@ -32,11 +33,16 @@ export interface Toast extends ToastSpec {
   id: number;
 }
 
-/** Отбой в полёте: карты ушедшего стола, свой ключ на каждый отбой и сколько им лететь. */
+/**
+ * Отбой в полёте: карты ушедшего стола, свой ключ на каждый отбой и сколько им лететь.
+ * `landing` — первая фаза (спека §2c.3): закрывающая карта ещё летит из руки и ложится на стол,
+ * стол стоит на месте; после паузы `landing` снимается, и стол сметается.
+ */
 export interface TableSweep {
   seq: number;
   cards: Card[];
   ms: number;
+  landing: { key: string; from: Origin; ms: number } | null;
 }
 
 export interface DebugSettings {
@@ -96,6 +102,12 @@ let sweepSeq = 0;
 let actTimer: ReturnType<typeof setTimeout> | null = null;
 let actSeq = 0;
 
+/** Карта, закрывшая отбой в этом срезе: сыграна и тем же действием ушла со стола. */
+function landingKey(update: ClientUpdate): string | null {
+  const played = update.events.find((event) => event.type === 'played');
+  return played && played.type === 'played' ? cardKeyOf(played.card) : null;
+}
+
 function stopActing(): void {
   if (actTimer !== null) clearTimeout(actTimer);
   actTimer = null;
@@ -122,18 +134,25 @@ export const useAppStore = create<AppState>()((set, get) => {
     // Отбой улетает отдельным слоем: в самой зоне стола всегда ровно карты среза.
     const swept = motionEnabled && !fresh ? sweptCards(prev, update) : [];
     const ms = sweepMs(speed, reduced);
+    const dwell = Math.round(DWELL_MS / Math.max(1, speed));
     // Зоны исчезают вместе со срезом (прикуп ушёл в руку, карта — со стола): места карт снимаются
     // с ещё не перерисованного экрана, и это начала перелётов этого хода (спека §2c.1).
-    const flights = motionEnabled && !fresh && !reduced ? flightsFor(prev, update) : NO_FLIGHTS;
+    const seq = ++actSeq;
+    const flights = motionEnabled && !fresh && !reduced ? flightsFor(prev, update, seq) : NO_FLIGHTS;
+    // Закрывающая карта сначала долетает до стола (её место в руке снято до перерисовки),
+    // лежит там паузу, и только потом стол сметается — перелёт и сметание не идут вместе (§2c.3).
+    const closingKey = swept.length > 0 ? landingKey(update) : null;
+    const landing = closingKey && flights.cards[closingKey] ? { key: closingKey, from: flights.cards[closingKey], ms: flyMs(speed) } : null;
+    if (landing) delete flights.cards[landing.key];
     const captionMs = captionHoldMs(speed);
-    const acting = actingFrom(update, ++actSeq, captionMs);
+    const acting = actingFrom(update, seq, captionMs);
     stopCelebration();
     stopActing();
     if (fresh || swept.length > 0) stopSweep();
     set({
       update,
       animSpeed: speed,
-      sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms } : fresh ? null : sweep,
+      sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms, landing } : fresh ? null : sweep,
       celebrating: hold > 0,
       acting,
       flights,
@@ -151,11 +170,26 @@ export const useAppStore = create<AppState>()((set, get) => {
         set({ celebrating: false });
       }, hold);
     }
+    let sweepHold = 0;
     if (swept.length > 0) {
-      sweepTimer = setTimeout(() => {
-        sweepTimer = null;
-        set({ sweep: null });
-      }, ms);
+      const mySeq = sweepSeq;
+      const startSweep = () => {
+        sweepTimer = setTimeout(() => {
+          sweepTimer = null;
+          set({ sweep: null });
+        }, ms);
+      };
+      if (landing) {
+        sweepTimer = setTimeout(() => {
+          const current = get().sweep;
+          if (current?.seq === mySeq) set({ sweep: { ...current, landing: null } });
+          startSweep();
+        }, landing.ms + dwell);
+        sweepHold = landing.ms + dwell + ms;
+      } else {
+        startSweep();
+        sweepHold = ms;
+      }
     }
     // Подпись сменяется следующим действием; если его нет — гаснет сама, а не висит до конца партии.
     // Снимается она после угасания: последние CAPTION_FADE_MS плашка растворяется, а не пропадает кадром.
@@ -166,6 +200,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       }, captionMs + CAPTION_FADE_MS);
     }
     for (const toast of eventToasts(update)) get().pushToast(toast.text, toast.tone);
+    return Math.max(sweepHold, hold);
   };
 
   const pump = new UpdatePump<ClientUpdate>(show, () => get().motionEnabled);

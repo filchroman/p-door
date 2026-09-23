@@ -13,6 +13,8 @@ export interface FlyFromProps {
    * `children`: у карт приёмника есть `layoutId` motion, и дубликат того же id сломал бы FLIP.
    */
   ghost: ReactNode;
+  /** Задержка старта (каскад карт прикупа, спека §2c.3); приёмник скрыт и всё время ожидания. */
+  delayMs?: number;
   /** Обёртка перелёта — она же позиционируемый элемент зоны (карта стола, карта веера). */
   className?: string;
   style?: CSSProperties;
@@ -30,6 +32,7 @@ interface FlightBox {
   /** Во сколько раз карта была меньше (стопка соперника) или больше (стол) в источнике. */
   scale: number;
   ms: number;
+  delay: number;
 }
 
 /** Во сколько раз карте позволено вырасти или уменьшиться за перелёт: дальше это уже не карта. */
@@ -64,17 +67,17 @@ export function flightLayer(): HTMLElement | null {
  * Приёмник на это время прячется (`visibility`), поэтому карты не видно в двух местах; в DOM он
  * остаётся, и счёт карт в зоне не меняется. Анимируются только transform и opacity (§2a).
  */
-export function FlyFrom({ from, ghost, className, style, children }: FlyFromProps) {
+export function FlyFrom({ from, ghost, delayMs = 0, className, style, children }: FlyFromProps) {
   const enabled = useAppStore((s) => s.motionEnabled);
   const speed = useAppStore((s) => s.animSpeed);
   /** Перелёт — событие появления: меняться по дороге ему нечем. */
-  const start = useRef({ from, enabled, speed });
+  const start = useRef({ from, enabled, speed, delayMs });
   const ref = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<FlightBox | null>(null);
 
   useLayoutEffect(() => {
     const el = ref.current;
-    const { from: source, enabled: on, speed: k } = start.current;
+    const { from: source, enabled: on, speed: k, delayMs: delay } = start.current;
     if (!el || !on || source === null) return;
     const origin = typeof source === 'string' ? zoneOrigin(source) : source;
     if (!origin) return;
@@ -88,12 +91,12 @@ export function FlyFrom({ from, ghost, className, style, children }: FlyFromProp
     const dy = Math.round(origin.y + origin.h / 2 - (top + height / 2));
     if (dx === 0 && dy === 0) return;
     const scale = width > 0 && origin.w > 0 ? Math.min(MAX_SCALE, Math.max(MIN_SCALE, origin.w / width)) : 1;
-    setBox({ left, top, width, height, dx, dy, scale, ms: flyMs(k) });
+    setBox({ left, top, width, height, dx, dy, scale, ms: flyMs(k), delay: Math.round(delay / Math.max(1, k)) });
   }, []);
 
   useEffect(() => {
     if (!box) return;
-    const timer = setTimeout(() => setBox(null), box.ms + RELEASE_SLACK_MS);
+    const timer = setTimeout(() => setBox(null), box.delay + box.ms + RELEASE_SLACK_MS);
     return () => clearTimeout(timer);
   }, [box]);
 
@@ -121,6 +124,7 @@ export function FlyFrom({ from, ghost, className, style, children }: FlyFromProp
                 '--fly-y': `${box.dy}px`,
                 '--fly-s': box.scale,
                 '--fly-ms': `${box.ms}ms`,
+                '--fly-delay': `${box.delay}ms`,
               } as CSSProperties
             }
             onAnimationEnd={() => setBox(null)}

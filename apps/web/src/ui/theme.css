@@ -11,6 +11,21 @@
   --font-body: 'PT Sans', system-ui, sans-serif;
   --font-script: 'Marck Script', cursive;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Токены (спека §2c.3): один набор отступов, радиусов, теней и цветов статусов на всё приложение. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 20px;
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 10px 20px rgba(0, 0, 0, 0.45);
+  --gold-bright: #ffd54f;
+  --status-green: #7cfc9a;
+  --status-orange: #ef6c00;
+  --status-blue: #1565c0;
   color-scheme: light;
 }
 
@@ -75,8 +90,14 @@ body {
   box-shadow: 0 2px 0 #9a9a9a, 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 #fff;
   cursor: pointer;
 }
-.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 0 0 #9a9a9a, 0 2px 6px rgba(0, 0, 0, 0.3); }
+/* Движение кнопок (спека §2c.3): нажатие — сжатие, наведение — подъём; только transform и opacity. */
+.btn { transition: transform 0.12s var(--ease-out), opacity 0.2s var(--ease-out); }
+.btn:active:not(:disabled) { transform: scale(0.96); }
 .btn:disabled { opacity: 0.5; cursor: default; }
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn:hover:active:not(:disabled) { transform: scale(0.96); }
+}
 .btn--primary {
   color: #fff;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
@@ -86,6 +107,7 @@ body {
 .btn--big { min-width: 120px; padding: 0.9em 1em; font-size: 1.05rem; }
 .btn--play {
   display: block;
+  transition: transform 0.12s var(--ease-out);
   margin: 20px auto;
   padding: 0.6em 2.2em;
   border: 0;
@@ -96,8 +118,11 @@ body {
   box-shadow: 0 4px 0 #b34700, 0 8px 18px rgba(0, 0, 0, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.45);
   cursor: pointer;
 }
+.btn--play:active { transform: scale(0.96); }
+@media (hover: hover) { .btn--play:hover { transform: translateY(-1px); } }
 
 .segmented {
+  position: relative;
   display: flex;
   padding: 4px;
   border-radius: 12px;
@@ -115,7 +140,21 @@ body {
   background: transparent;
   cursor: pointer;
 }
-.segmented__item.is-active { color: var(--ink); background: linear-gradient(#ffffff, #f0ede6); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); }
+/* Ползунок выделения переезжает под выбранную «пилюлю» одним transform (спека §2c.3). */
+.segmented__thumb {
+  position: absolute; top: 4px; bottom: 4px; left: 4px;
+  width: calc((100% - 8px) / var(--count, 1));
+  border-radius: 9px;
+  background: linear-gradient(#ffffff, #f0ede6);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  transform: translateX(calc(var(--index, 0) * 100%));
+  transition: transform 0.2s var(--ease-out);
+  pointer-events: none;
+}
+.segmented__item { position: relative; z-index: 1; transition: color 0.2s var(--ease-out), transform 0.12s var(--ease-out); }
+.segmented__item:active { transform: scale(0.96); }
+.segmented__item.is-active { color: var(--ink); }
+.segmented--tiles .segmented__item.is-active { background: linear-gradient(#ffffff, #f0ede6); }
 .segmented--tiles { flex-wrap: wrap; gap: 8px; padding: 0; background: none; box-shadow: none; }
 .segmented--tiles .segmented__item {
   display: flex;
@@ -128,7 +167,7 @@ body {
   background: linear-gradient(#ffffff, #e7e2d6);
   box-shadow: 0 2px 0 #bdb29a;
 }
-.segmented--tiles .segmented__item.is-active { border-color: var(--gold-dark); box-shadow: 0 0 0 2px var(--gold), 0 2px 0 #bdb29a; }
+.segmented--tiles .segmented__item.is-active { border-color: var(--gold-dark); box-shadow: 0 0 0 2px var(--gold), 0 2px 0 #bdb29a; transform: translateY(-2px); }
 .segmented__icon { font-size: 1.5rem; }
 
 .plaque {

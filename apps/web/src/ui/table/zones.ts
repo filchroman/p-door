@@ -12,7 +12,8 @@ export function zoneProps(zone: string, count: number, shown = count) {
  * Своя рука не ограничена: в ней лежат настоящие карты, и играть надо каждой.
  */
 export const FAN_CAP = 6;
-export const PRYKUP_CAP = 3;
+/** Прикуп рисуется только цифрой (чип на аватарке), карт в зоне нет. */
+export const PRYKUP_CAP = 0;
 export const STACK_CAP = 6;
 export const DECK_CAP = 8;
 

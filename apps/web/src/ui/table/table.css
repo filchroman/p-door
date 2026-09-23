@@ -1,7 +1,7 @@
 /* Правило §2a: переходы и анимации — только transform и opacity. Подсветки и тени — слои .card::before/::after. */
 /*
  * Размеры карт (спека §2c.1): крупная карта — своя рука, стол, колода и вытянутая; мелкая —
- * стопки, рубашки и прикупы соперников. Те же числа лежат в ui/table/fan.ts: веер руки получает
+ * стопки соперников и рубашки. Те же числа лежат в ui/table/fan.ts: веер руки получает
  * ширину и перекрытие оттуда, остальное берёт clamp() отсюда.
  */
 .table-screen {
@@ -12,84 +12,88 @@
   position: relative; flex: 1; display: grid; grid-template-rows: auto 1fr auto auto; min-height: 100dvh;
 }
 
-/*
- * Соперники (спека §2c.2). Каждый — одна тесная строка: аватарка с именем слева, справа от неё
- * компактный веер рубашек (или стопка фазы 1) и цифры. Раньше рамка была столбиком «плашка →
- * аватарка → имя → карты» шириной в полэкрана: на 375×812 шестеро вставали в три ряда по 180 px,
- * страница получала 300 px вертикальной прокрутки и стол уезжал за нижний край.
- * Размеры (--card-small, --card-mini, --avatar-size) приходят из TableScreen и зависят от числа
- * соперников, поэтому ряд ужимается ровно настолько, насколько нужно.
+/* ─── Рассадка соперников (спека §2c.3) ───────────────────────────────────────────────────────
+ * Один ряд по верхней дуге, места одинаковые и симметричные: плашка статуса → аватарка → имя,
+ * а карты (стопка фазы 1 или веер рубашек фазы 2) выглядывают из-под аватарки, как в «Дураке».
+ * Каждое место занимает равную долю ширины, поэтому третий игрок больше не переносится на
+ * вторую строку. `--arc-y` приходит из TableScreen: крайние места чуть ниже центральных.
  */
-.opponents { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px 8px; padding: 4px 6px 0; }
+.opponents { display: flex; justify-content: space-evenly; align-items: flex-start; padding: var(--space-2) var(--space-1) 0; }
 .player-frame { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 70px; }
-.opponents .player-frame { flex-direction: row; align-items: center; gap: 5px; min-width: 0; padding-top: 12px; }
-.opponents .player-id { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.opponents .avatar-frame { width: var(--avatar-size); height: var(--avatar-size); padding: 3px; border-radius: 9px; }
-.opponents .avatar { border-radius: 7px; font-size: calc(var(--avatar-size) * 0.52); }
-/*
- * Имя лежит вплотную под аватаркой, а подсветка хода (3 px кольца и 20 px свечения) заливала его
- * золотом — поэтому у соперника имя на своей тёмной плашке, а свечение чуть тише.
- */
+.opponents .player-frame { flex: 1 1 0; min-width: 0; gap: 0; padding-top: 14px; transform: translateY(var(--arc-y, 0px)); }
+.opponents .player-id { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.opponents .avatar-frame { width: var(--avatar-size); height: var(--avatar-size); padding: 3px; border-radius: var(--radius-s); }
+.opponents .avatar { border-radius: 6px; font-size: calc(var(--avatar-size) * 0.52); }
+/* Имя — на своей тёмной плашке, чтобы свечение хода его не заливало. */
 .opponents .player-name {
   position: relative; z-index: 1;
-  max-width: calc(var(--avatar-size) + 18px); padding: 0 3px; border-radius: 5px;
-  font-size: 0.6rem; line-height: 1.25; text-shadow: none; background: rgba(8, 16, 32, 0.6);
+  max-width: calc(var(--avatar-size) + 24px); padding: 0 4px; border-radius: 5px;
+  font-size: 0.62rem; line-height: 1.3; text-shadow: none; background: rgba(8, 16, 32, 0.62);
 }
-.opponents .player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 2px #7cfc9a, 0 0 9px #7cfc9a, 0 2px 4px rgba(0, 0, 0, 0.45); }
-.opponents .player-frame.is-acting .avatar-frame { box-shadow: 0 0 0 2px #ffd54f, 0 0 11px #ffd54f, 0 2px 4px rgba(0, 0, 0, 0.45); }
-.opponents .plaque-slot { position: absolute; left: 0; right: 0; top: 0; height: 12px; }
-.opponents .plaque-slot .plaque { top: -2px; padding: 0 5px; font-size: 0.6rem; }
-.opponents .act-caption { bottom: -8px; font-size: 0.6rem; }
-.player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 3px #7cfc9a, 0 0 16px #7cfc9a, 0 3px 6px rgba(0, 0, 0, 0.45); }
-/* Кто сейчас действует — видно по рамке и подписи (спека §2c); подсветка перебивает «Ходит». */
-.player-frame.is-acting .avatar-frame { box-shadow: 0 0 0 3px #ffd54f, 0 0 20px #ffd54f, 0 3px 6px rgba(0, 0, 0, 0.45); }
+/* Карты лежат под аватаркой: верхний край веера прячется за рамку. */
+.opponents .player-extras { position: relative; z-index: 1; margin-top: -6px; display: flex; justify-content: center; }
+.opponents .plaque-slot { position: absolute; left: 0; right: 0; top: 0; height: 14px; }
+.opponents .plaque-slot .plaque { top: -1px; padding: 0 6px; font-size: 0.58rem; height: 18px; }
+.opponents .act-caption { top: -3px; bottom: auto; font-size: 0.6rem; }
+/* Пока игрок действует, подпись занимает место плашки статуса. */
+.player-frame.is-acting .plaque-slot .plaque { opacity: 0; transition: opacity 0.12s var(--ease-out); }
+
+.player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 3px var(--status-green), 0 0 16px var(--status-green), var(--shadow-1); }
+.player-frame.is-acting .avatar-frame { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 20px var(--gold-bright), var(--shadow-1); }
+.opponents .player-frame.is-turn .avatar-frame { box-shadow: 0 0 0 2px var(--status-green), 0 0 9px var(--status-green), var(--shadow-1); }
+.opponents .player-frame.is-acting .avatar-frame { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 11px var(--gold-bright), var(--shadow-1); }
+.player-frame.is-out { opacity: 0.6; }
+
+/* Подпись действия: кто что сделал (спека §2c). Лежит поверх, ничего не сдвигает. */
 .act-caption {
   position: absolute; left: 50%; bottom: -13px; z-index: 4;
   padding: 1px 7px; border-radius: 9px; white-space: nowrap;
-  font: 700 0.68rem var(--font-body); color: #fff; background: rgba(12, 20, 36, 0.82);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font: 700 0.68rem var(--font-body); color: #fff; background: rgba(12, 20, 36, 0.86);
+  box-shadow: var(--shadow-1);
   transform: translateX(-50%);
-  /* Появляется рывком, висит --caption-ms и гаснет плавно (спека §2c.1). */
   animation: act-caption-in 180ms var(--ease-out) both, act-caption-out 240ms var(--ease-out) var(--caption-ms, 900ms) forwards;
 }
-/* У своей рамки места снизу нет — у края экрана подпись всплывает над панелью. */
 .bottom-bar .act-caption { bottom: auto; top: -22px; }
 @keyframes act-caption-in { from { opacity: 0; transform: translate(-50%, 6px); } }
 @keyframes act-caption-out { to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  @keyframes act-caption-in { from { opacity: 0; transform: translateX(-50%); } }
-}
-.player-frame.is-out { opacity: 0.6; }
-/*
- * Плашка статуса не участвует в раскладке: слот всегда одной высоты, а сама плашка лежит в нём
- * поверх. Раньше она была в потоке — её появление поднимало строку соперников на 3 px, и весь
- * столбец (колода, моя стопка, нижняя панель) прыгал на каждый ход бота (спека §2c).
- */
+
+/* Плашка статуса: слот постоянной высоты, сама плашка лежит в нём поверх и всплывает снизу. */
 .plaque-slot { position: relative; height: 24px; width: 100%; }
-.plaque-slot .plaque { position: absolute; left: 50%; top: 1px; transform: translateX(-50%); }
+.plaque-slot .plaque { position: absolute; left: 50%; top: 1px; transform: translateX(-50%); animation: plaque-in 160ms var(--ease-out) both; }
+@keyframes plaque-in { from { opacity: 0; transform: translate(-50%, 5px); } }
 .plaque--caught { color: #fff; border-color: #1b5e20; background: linear-gradient(#81c784, #2e7d32); }
-.plaque--taking { color: #4a2c00; border-color: #b06000; background: linear-gradient(#ffcc80, #ef6c00); }
-.plaque--beating { color: #fff; border-color: #0d47a1; background: linear-gradient(#64b5f6, #1565c0); }
+.plaque--taking { color: #4a2c00; border-color: #b06000; background: linear-gradient(#ffcc80, var(--status-orange)); }
+.plaque--beating { color: #fff; border-color: #0d47a1; background: linear-gradient(#64b5f6, var(--status-blue)); }
 .plaque--waiting { color: #37474f; border-color: #607d8b; background: linear-gradient(#eceff1, #b0bec5); }
 .avatar-shake, .avatar-still { width: 100%; height: 100%; }
 .player-name { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 0.85rem; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 .foul-badge { position: absolute; top: -6px; right: -6px; z-index: 2; display: grid; place-items: center; min-width: 20px; height: 20px; border: 2px solid #fff; border-radius: 10px; font: 700 0.75rem var(--font-body); color: #fff; background: var(--red); }
+/* Прикуп — цифрой на рамке (заказчик: карты прикупа не показывать). */
+.prykup-chip { position: absolute; top: -6px; left: -6px; z-index: 2; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border: 2px solid #fff; border-radius: 10px; font: 700 0.72rem var(--font-body); color: #3b2a00; background: linear-gradient(#ffe9a8, var(--gold)); box-shadow: var(--shadow-1); }
 .avatar-timer { position: absolute; left: 4px; right: 4px; bottom: -8px; }
 .player-extras { display: flex; align-items: center; gap: 3px; }
 
-/* центр, моя зона, нижняя панель */
-.table-center { display: grid; place-items: center; min-height: 150px; padding: 4px 8px; }
-/*
- * Своя зона занимает всю ширину колонки: прикуп фазы 2 лежит в углу поверх неё, иначе он съедал бы
- * у веера руки ~110 px бюджета и крупные карты не поместились бы (спека §2c.1).
- */
-.my-area { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 12px; min-height: 130px; padding: 4px 8px 8px; }
-.my-area > .prykup { position: absolute; right: 6px; top: 4px; z-index: 3; }
-.bottom-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
-.bottom-bar__info { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+/* Цифра-счётчик на углу стопки или веера: одна и та же «таблетка» везде. */
+.count-badge {
+  position: absolute; right: -8px; bottom: -6px; z-index: 3;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+  display: grid; place-items: center;
+  font: 700 0.72rem var(--font-body); color: var(--ink); background: #fff;
+  box-shadow: var(--shadow-1);
+}
+
+/* ─── Центр, моя зона, нижняя панель ─────────────────────────────────────────────────────── */
+.table-center { position: relative; display: grid; place-items: center; min-height: 150px; padding: var(--space-1) var(--space-2); }
+/* Отбой: стопка рубашек у правого края, к ней улетает сметённый стол (заказчик: «отбой справа»). */
+.discard-pile { --card-w: var(--card-mini); position: absolute; right: 10px; top: 50%; transform: translateY(-50%) rotate(8deg); }
+.discard-pile__stack { position: relative; width: var(--card-w); aspect-ratio: 2 / 3; }
+.discard-pile__count { right: -10px; bottom: -8px; }
+.my-area { position: relative; display: flex; justify-content: center; align-items: flex-end; gap: var(--space-3); min-height: 130px; padding: var(--space-1) var(--space-2) var(--space-2); }
+.bottom-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--space-2); padding: 10px var(--space-3) calc(10px + env(safe-area-inset-bottom)); }
+.bottom-bar__info { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
 .bottom-bar .player-name { color: var(--ink); text-shadow: none; }
-.trump-badge { display: flex; align-items: center; gap: 4px; }
-.trump-badge__card { display: block; width: 30px; height: 45px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+.trump-badge { display: flex; align-items: center; gap: var(--space-1); }
+.trump-badge__card { display: block; width: 30px; height: 45px; border-radius: 3px; box-shadow: var(--shadow-1); }
 .trump-badge__suit { font-size: 1.5rem; line-height: 1; color: #1d1d1f; }
 .trump-badge__suit.is-red { color: var(--red); }
 .vidbiy-counter { font: 700 0.85rem var(--font-body); color: #3a3a3a; }
@@ -98,62 +102,54 @@
 .card--blank .card__img { background: linear-gradient(#fffdf7, #efe8d8); }
 .stack-layer { position: absolute; left: 0; top: 0; }
 
-/* фаза 1 */
-/*
- * Колода и вытянутая карта — две одинаковые коробки в одной строке (спека §2c): вытянутая лежит
- * ровно справа от колоды на той же линии, её место занято всегда, поэтому появление и исчезновение
- * карты ничего не двигает. Раньше `.deck__pile` был строчным span нулевого размера — рубашки
- * рисовались от угла кнопки, и вытянутая карта оказывалась выше и правее колоды, по диагонали.
- */
+/* ─── Фаза 1 ──────────────────────────────────────────────────────────────────────────────── */
+/* Колода и вытянутая карта — две одинаковые коробки в одной строке: вытянутая ровно справа. */
 .deck-area { --deck-card-w: var(--card-big); --deck-gap: 14px; display: flex; align-items: flex-start; gap: var(--deck-gap); }
-.deck { position: relative; display: block; width: var(--deck-card-w); padding: 0; border: 0; background: none; cursor: pointer; }
+.deck { position: relative; display: block; width: var(--deck-card-w); padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.12s var(--ease-out); }
 .deck:disabled { cursor: default; }
+.deck:not(:disabled):active { transform: scale(0.96); }
 .deck__pile { --card-w: var(--deck-card-w); display: block; position: relative; width: 100%; aspect-ratio: 2 / 3; }
 .deck:not(:disabled) .deck__pile .stack-layer:last-child .card { --glow: rgba(255, 255, 255, 0.75); }
 .deck:not(:disabled) .deck__pile .stack-layer:last-child .card::after { opacity: 1; }
-.deck__count { position: absolute; right: -10px; bottom: -10px; z-index: 2; min-width: 26px; padding: 2px 6px; border-radius: 13px; font-weight: 700; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
+.deck__count { position: absolute; right: -10px; bottom: -10px; z-index: 2; min-width: 26px; padding: 2px 6px; border-radius: 13px; font-weight: 700; background: #fff; box-shadow: var(--shadow-1); }
 .drawn-slot { --card-w: var(--deck-card-w); display: grid; align-content: start; width: var(--deck-card-w); aspect-ratio: 2 / 3; }
 .drawn-slot > * { grid-area: 1 / 1; }
 .pile { position: relative; display: flex; align-items: flex-end; gap: 4px; min-height: 44px; padding: 2px; border-radius: 10px; }
 .pile.is-targetable { outline: 2px dashed rgba(255, 255, 255, 0.55); cursor: pointer; }
-.pile.is-snap, .table-fan.is-snap { outline: 3px solid #ffd54f; }
+.pile.is-snap, .table-fan.is-snap { outline: 3px solid var(--gold-bright); }
 .pile__stack { --card-w: var(--card-small); position: relative; width: var(--card-w); aspect-ratio: 2 / 3; }
-.pile__count, .prykup__count, .opp-hand__count { font-weight: 700; font-size: 0.8rem; color: #fff; text-shadow: 0 1px 2px #000; }
-.prykup { display: flex; align-items: center; gap: 2px; }
-/* Рубашки прикупа и руки соперника — мелкие: информации на них нет, точное число стоит цифрой (§2c.2). */
-.prykup__fan { --card-w: var(--card-mini); display: flex; }
 /* Своя стопка в фазе 1 — карта, которой я хожу: она читаемого размера, как рука. */
 .my-area .pile__stack { --card-w: var(--card-big); }
-.prykup__fan .card + .card { margin-left: calc(-1 * var(--overlap, 8px)); }
-.pile__count, .prykup__count, .opp-hand__count { font-size: 0.72rem; }
 .draggable { touch-action: none; cursor: grab; }
 .draggable.is-selected .card::after, .draggable.is-dragging .card::after { opacity: 1; }
 .draggable.is-dragging { position: relative; z-index: 40; cursor: grabbing; --shadow-opacity: 1; }
+
+/* «ВАХТА!»: выскакивает с overshoot, пульсирует, пока окно открыто, гаснет, когда закрылось (§2c.3). */
 .vakhta-btn {
   position: absolute; right: 14px; bottom: 150px; z-index: 50;
-  width: 96px; height: 96px; border: 4px solid #fff; border-radius: 50%;
-  font: 900 1.05rem var(--font-body); letter-spacing: 0.03em; color: #fff;
+  width: 92px; height: 92px; border: 4px solid #fff; border-radius: 50%;
+  font: 900 1rem var(--font-body); letter-spacing: 0.03em; color: #fff;
   background: radial-gradient(circle at 35% 30%, #ff8a80, #d50000 55%, #8e0000);
-  box-shadow: 0 6px 0 #5d0000, 0 10px 20px rgba(0, 0, 0, 0.5);
-  animation: vakhta-pulse 1s ease-in-out infinite; cursor: pointer;
+  box-shadow: 0 6px 0 #5d0000, var(--shadow-2);
+  animation: vakhta-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both, vakhta-pulse 1s ease-in-out 320ms infinite; cursor: pointer;
 }
+.vakhta-btn:active { animation: none; transform: scale(0.94); }
+.vakhta-btn.is-leaving { animation: vakhta-out 180ms var(--ease-out) forwards; pointer-events: none; }
+@keyframes vakhta-in { from { opacity: 0; transform: scale(0.4); } }
 @keyframes vakhta-pulse { 50% { transform: scale(1.06); } }
+@keyframes vakhta-out { to { opacity: 0; transform: scale(0.6); } }
 
-/* фаза 2 */
+/* ─── Фаза 2 ──────────────────────────────────────────────────────────────────────────────── */
 .table-stage { position: relative; width: calc(var(--card-big) + 24px); min-height: calc(var(--card-big) * 2.6); }
 .table-fan { position: relative; width: calc(var(--card-big) + 24px); min-height: calc(var(--card-big) * 2.6); border-radius: 12px; }
-/* Отбой: слой поверх зоны, живёт ровно свою анимацию — в зоне остаются только карты среза. */
-.table-sweep { position: absolute; inset: 0; pointer-events: none; perspective: 700px; }
-.table-sweep .table-card { will-change: transform, opacity; animation: table-sweep var(--sweep-ms, 300ms) var(--ease-out) both; }
 /*
- * Отбой улетает вбок и тает. Дальше колонки его не пускаем: прежние 260 px выносили карты за край
- * экрана, страница получала горизонтальную прокрутку и нижняя панель дёргалась (спека §2c.1).
+ * Отбой (спека §2c.3): слой поверх зоны. Пока идёт `is-landing`, стол стоит и закрывающая карта
+ * долетает из руки; потом весь стол улетает к стопке отбоя справа (`--sweep-x/y/s` обмеряются один
+ * раз) и тает. Слой живёт ровно свою анимацию — в зоне стола остаются только карты среза.
  */
-@keyframes table-sweep { to { transform: translate3d(104px, -22px, 0) rotate(22deg); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .table-sweep .table-card { animation-name: table-sweep-fade; }
-  @keyframes table-sweep-fade { to { opacity: 0; } }
-}
+.table-sweep { position: absolute; inset: 0; pointer-events: none; perspective: 700px; }
+.table-sweep:not(.is-landing) .table-card { will-change: transform, opacity; animation: table-sweep var(--sweep-ms, 440ms) cubic-bezier(0.4, 0, 0.8, 0.6) both; }
+@keyframes table-sweep { to { transform: translate3d(var(--sweep-x, 104px), var(--sweep-y, -22px), 0) rotate(8deg) scale(var(--sweep-s, 1)); opacity: 0.2; } }
 .table-card { --card-w: var(--card-big); position: absolute; left: calc(var(--i) * 4px); bottom: calc(var(--i) * var(--card-w) * 0.32); }
 .table-card.is-top { z-index: 2; }
 .table-card.is-top .card::after { opacity: 1; }
@@ -173,14 +169,27 @@
 /* затемнение неподходящих — слой поверх карты, меняется только opacity */
 .hand-card::after { content: ''; position: absolute; inset: 0; border-radius: 6px; background: rgba(8, 16, 32, 0.45); opacity: 0; transition: opacity 0.18s var(--ease-out); pointer-events: none; }
 .hand-card.is-dim::after { opacity: 1; }
-.opp-hand { display: flex; align-items: center; gap: 3px; }
-.opp-hand__fan { --card-w: var(--card-mini); display: flex; }
-/* Перелетающая рубашка лежит в обёртке .fly-from — отступ считается по любым детям веера. */
+/* Веер рубашек соперника: лёгкий разворот, как у настоящей руки; цифра — на углу. */
+.opp-hand { display: flex; align-items: center; }
+.opp-hand__cards { position: relative; }
+.opp-hand__fan { --card-w: var(--card-mini); display: flex; align-items: flex-end; padding: 0 4px; }
 .opp-hand__fan > * + * { margin-left: calc(-1 * var(--overlap, 9px)); }
+.opp-hand__fan > * { transform: rotate(calc((var(--k, 0) - (var(--n, 1) - 1) / 2) * 5deg)); transform-origin: 50% 130%; }
+.opp-hand__count { right: -6px; bottom: -8px; }
+.pile__count { right: -10px; bottom: -8px; }
 
-/* штраф */
-.modal__timer { display: block; margin-bottom: 8px; }
+/* ─── Штраф ───────────────────────────────────────────────────────────────────────────────── */
+.modal__timer { display: block; margin-bottom: var(--space-2); }
 .modal__text { font-weight: 700; }
 .penalty-hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-.penalty-card { --card-w: var(--card-big); min-width: 44px; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.penalty-card { --card-w: var(--card-big); min-width: 44px; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; transition: transform 0.12s var(--ease-out); }
+.penalty-card:active { transform: scale(0.96); }
 .debtors { padding-left: 1.2em; }
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes act-caption-in { from { opacity: 0; transform: translateX(-50%); } }
+  @keyframes plaque-in { from { opacity: 0; transform: translateX(-50%); } }
+  @keyframes vakhta-in { from { opacity: 0; } }
+  .table-sweep:not(.is-landing) .table-card { animation-name: table-sweep-fade; }
+  @keyframes table-sweep-fade { to { opacity: 0; } }
+}

@@ -5,9 +5,11 @@ import { useAppStore } from '../../store/appStore';
 import { isFresh } from '../../store/derive';
 import { useViewportWidth } from '../useViewport';
 import { BottomBar } from './BottomBar';
+import { DiscardPile } from './DiscardPile';
 import { activeCount, opponentsOf, playerStatus } from './derive';
 import { miniCardWidth, opponentAvatar, opponentCardWidth } from './fan';
 import { PlayerFrame } from './PlayerFrame';
+import { seatArcY } from './seats';
 import { cardsInPlay, cardsShown } from './zones';
 import './table.css';
 
@@ -56,13 +58,17 @@ export function TableScreen({ center, mine, action, opponentExtras }: TableScree
   return (
     <div className="table-screen" data-total={cardsInPlay(view)} data-shown={cardsShown(view)} onClick={() => hasSelection && select(null)}>
       <div className="opponents" style={opponentSizes}>
-        {opponents.map((p) => (
-          <PlayerFrame key={p.id} {...frame(p)}>
+        {opponents.map((p, i) => (
+          // Одна дуга на всех: крайние места чуть ниже, центр выше (спека §2c.3).
+          <PlayerFrame key={p.id} {...frame(p)} style={{ '--arc-y': `${seatArcY(i, opponents.length)}px` } as CSSProperties}>
             {opponentExtras?.(p)}
           </PlayerFrame>
         ))}
       </div>
-      <div className="table-center">{center}</div>
+      <div className="table-center">
+        {center}
+        <DiscardPile count={view.discardCount} />
+      </div>
       <div className="my-area">{mine}</div>
       <BottomBar
         action={action}

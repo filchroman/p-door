@@ -85,6 +85,7 @@ export const ru = {
     trump: (suit: Suit) => `Козырь: ${suitNames[suit]}`,
     prykup: (n: number) => `Прикуп: ${n}`,
     stack: (n: number) => `Стопка: ${n}`,
+    discard: (n: number) => `Отбой: ${n}`,
     hand: (n: number) => `Карт: ${n}`,
     tableZone: 'Стол',
     fouls: (n: number) => `Фолы: ${n}`,

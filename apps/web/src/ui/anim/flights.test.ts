@@ -57,9 +57,9 @@ describe('flightsFor: откуда летит карта (§2c.1)', () => {
     zone('table', 140, 300, ['6D']);
     const state = phase2State({ players: [{ id: 'A', hand: '9H' }, { id: 'B', hand: 'QC' }], table: [['6D', 'B']], trump: 'D', turn: 'A' });
     const mine = flightsFor(null, makeUpdate(state, 'A', { events: [{ type: 'tookBottom', playerId: 'A', card: c('6D') }] }));
-    expect(mine.hand).toEqual({ from: { x: 144, y: 304, w: 84, h: 126 }, cards: ['6D'], count: 1 });
+    expect(mine.hand).toEqual({ from: { x: 144, y: 304, w: 84, h: 126 }, seq: 0, cards: ['6D'], count: 1 });
     const theirs = flightsFor(null, makeUpdate(state, 'A', { events: [{ type: 'tookBottom', playerId: 'B', card: c('6D') }] }));
-    expect(theirs.hands.B).toEqual({ from: { x: 144, y: 304, w: 84, h: 126 }, cards: [], count: 1 });
+    expect(theirs.hands.B).toEqual({ from: { x: 144, y: 304, w: 84, h: 126 }, seq: 0, cards: [], count: 1 });
     expect(theirs.hand).toBeNull();
   });
 
@@ -69,9 +69,9 @@ describe('flightsFor: откуда летит карта (§2c.1)', () => {
     const before = phase2State({ players: [{ id: 'A', hand: '9H', prykup: 'KS QD' }, { id: 'B', hand: 'QC', prykup: 'TS' }], trump: 'D', turn: 'A' });
     const after = phase2State({ players: [{ id: 'A', hand: '9H KS QD' }, { id: 'B', hand: 'QC TS' }], trump: 'D', turn: 'A' });
     const mine = flightsFor(makeUpdate(before, 'A'), makeUpdate(after, 'A', { events: [{ type: 'prykupOpened', playerId: 'A' }] }));
-    expect(mine.hand).toEqual({ from: { x: 300, y: 600, w: 84, h: 126 }, cards: ['KS', 'QD'], count: 2 });
+    expect(mine.hand).toEqual({ from: { x: 300, y: 600, w: 84, h: 126 }, seq: 0, cards: ['KS', 'QD'], count: 2 });
     const theirs = flightsFor(makeUpdate(before, 'A'), makeUpdate(after, 'A', { events: [{ type: 'prykupOpened', playerId: 'B' }] }));
-    expect(theirs.hands.B).toEqual({ from: { x: 20, y: 100, w: 84, h: 126 }, cards: [], count: 1 });
+    expect(theirs.hands.B).toEqual({ from: { x: 20, y: 100, w: 84, h: 126 }, seq: 0, cards: [], count: 1 });
   });
 
   it('нет источника на экране — нет и перелёта: лучше без него, чем из угла экрана', () => {

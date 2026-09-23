@@ -5,6 +5,8 @@ import { cardOrigin, zoneOrigin, type Origin } from './origins';
 /** Прилетевшие в руку карты: своя рука знает их ключи, чужая — только число рубашек. */
 export interface HandFlight {
   from: Origin;
+  /** Номер среза: свежий ключ прилетевшим рубашкам, чтобы перелёт сыграл и в полном веере. */
+  seq: number;
   /** Ключи прилетевших карт (своя рука) — по ним карта находит свой перелёт. */
   cards: string[];
   /** Сколько рубашек прилетело (чужая рука). */
@@ -41,7 +43,7 @@ function newInMyHand(prev: ClientUpdate | null, update: ClientUpdate): string[] 
   return update.view.myHand.map(cardToString).filter((key) => !before.has(key));
 }
 
-export function flightsFor(prev: ClientUpdate | null, update: ClientUpdate): Flights {
+export function flightsFor(prev: ClientUpdate | null, update: ClientUpdate, seq = 0): Flights {
   const cards: Flights['cards'] = {};
   const hands: Flights['hands'] = {};
   const me = update.view.me;
@@ -76,8 +78,8 @@ export function flightsFor(prev: ClientUpdate | null, update: ClientUpdate): Fli
         // Стол → рука. Своя карта летит открытой, чужая — рубашкой, но обе летят.
         const from = originOf(cardToString(event.card), 'table');
         if (!from) break;
-        if (event.playerId === me) hand = { from, cards: [cardToString(event.card)], count: 1 };
-        else hands[event.playerId] = { from, cards: [], count: 1 };
+        if (event.playerId === me) hand = { from, seq, cards: [cardToString(event.card)], count: 1 };
+        else hands[event.playerId] = { from, seq, cards: [], count: 1 };
         break;
       }
       case 'prykupOpened': {
@@ -85,13 +87,13 @@ export function flightsFor(prev: ClientUpdate | null, update: ClientUpdate): Fli
         if (!from) break;
         if (event.playerId === me) {
           const keys = newInMyHand(prev, update);
-          if (keys.length > 0) hand = { from, cards: keys, count: keys.length };
+          if (keys.length > 0) hand = { from, seq, cards: keys, count: keys.length };
         } else {
           const opened = Math.max(
             countIn(prev, event.playerId, 'prykupCount') - countIn(update, event.playerId, 'prykupCount'),
             countIn(update, event.playerId, 'handCount') - countIn(prev, event.playerId, 'handCount'),
           );
-          if (opened > 0) hands[event.playerId] = { from, cards: [], count: opened };
+          if (opened > 0) hands[event.playerId] = { from, seq, cards: [], count: opened };
         }
         break;
       }

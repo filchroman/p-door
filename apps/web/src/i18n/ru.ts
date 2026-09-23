@@ -68,6 +68,7 @@ export const ru = {
     code: 'Код',
     invite: 'Пригласить',
     copied: 'Ссылка скопирована',
+    sent: 'Приглашение отправлено',
     shareText: 'Заходи в «Вахту» — комната открыта!',
     seats: (n: number, max: number) => `Игроки ${n} из ${max}`,
     host: 'хост',

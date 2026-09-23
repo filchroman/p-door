@@ -6,8 +6,16 @@ import { HomeScreen } from './HomeScreen';
 import { LobbyScreen } from './LobbyScreen';
 import { Toasts } from './Toasts';
 
+/** Панель отладки — только в dev-сборке или по `?debug`, и только там, где есть чем управлять (тренировка). */
+function useDebugAllowed(): boolean {
+  const hasDebugSeam = useAppStore((s) => !!s.client?.debug);
+  const wanted = import.meta.env.DEV || (typeof location !== 'undefined' && location.search.includes('debug'));
+  return hasDebugSeam && wanted;
+}
+
 export function App() {
   const screen = useAppStore((s) => s.screen);
+  const debugAllowed = useDebugAllowed();
   return (
     <main className="app-column">
       {screen === 'home' && <HomeScreen />}
@@ -19,7 +27,7 @@ export function App() {
       {screen === 'lobby' && <LobbyScreen />}
       {screen === 'game' && <GameScreen />}
       <Toasts />
-      {screen === 'game' && <DebugPanel />}
+      {screen === 'game' && debugAllowed && <DebugPanel />}
     </main>
   );
 }

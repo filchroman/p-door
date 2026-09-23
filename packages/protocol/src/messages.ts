@@ -39,6 +39,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('room:next') }),
   z.object({ type: z.literal('room:close') }),
   z.object({ type: z.literal('game:action'), action: intentSchema, version: z.number().int().nonnegative() }),
+  /** Подготовить приглашение в текущую комнату: сообщение с кнопкой, которое Telegram отправит другу. */
+  z.object({ type: z.literal('invite:prepare') }),
 ]);
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -90,7 +92,8 @@ export type ServerErrorCode =
   | 'illegal_move'
   | 'unknown_player'
   | 'card_not_in_hand'
-  | 'nothing_to_call';
+  | 'nothing_to_call'
+  | 'invite_unavailable';
 
 export type ServerMessage =
   | { type: 'hello:ok'; me: Me; room: RoomState | null }
@@ -105,4 +108,5 @@ export type ServerMessage =
       players: import('./index').SeatInfo[];
       deadlines: import('./index').Deadlines;
     }
+  | { type: 'invite:ready'; id: string }
   | { type: 'error'; code: ServerErrorCode; message?: string };

@@ -55,6 +55,7 @@ export class SocketGameClient implements AppClient {
   private readonly errorListeners = new Set<(code: ErrorCode) => void>();
   private readonly roomListeners = new Set<RoomListener>();
   private readonly roomErrorListeners = new Set<(code: ServerErrorCode) => void>();
+  private inviteWaiters: ((id: string | null) => void)[] = [];
   private readonly connect: (url: string) => SocketLike;
   private readonly later: (fn: () => void, ms: number) => unknown;
   private readonly cancel: (handle: unknown) => void;
@@ -158,6 +159,14 @@ export class SocketGameClient implements AppClient {
     this.post({ type: 'room:start' });
   }
 
+  /** Попросить бота подготовить приглашение-сообщение; null — недоступно (нет бота или вход не через Telegram). */
+  prepareInvite(): Promise<string | null> {
+    return new Promise((resolve) => {
+      this.inviteWaiters.push(resolve);
+      this.post({ type: 'invite:prepare' });
+    });
+  }
+
   // ——— внутреннее ———
 
   private open(): void {
@@ -223,7 +232,14 @@ export class SocketGameClient implements AppClient {
         for (const listener of [...this.listeners]) listener(update);
         return;
       }
+      case 'invite:ready':
+        for (const waiter of this.inviteWaiters.splice(0)) waiter(message.id);
+        return;
       case 'error':
+        if (message.code === 'invite_unavailable') {
+          for (const waiter of this.inviteWaiters.splice(0)) waiter(null);
+          return;
+        }
         if (message.code === 'replaced') {
           this.disposed = true;
           this.connection = 'lost';

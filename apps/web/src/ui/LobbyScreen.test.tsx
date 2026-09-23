@@ -59,7 +59,22 @@ describe('LobbyScreen', () => {
     expect(useAppStore.getState().toasts.at(-1)?.text).toBe(ru.lobby.copied);
   });
 
-  it('ссылка без бота ведёт на страницу с кодом', () => {
+  it('ссылка без бота ведёт на страницу с кодом; без короткого имени — на бота', () => {
     expect(inviteLink('K7PQ', null, 'https://vakhta.example')).toBe('https://vakhta.example/r/K7PQ');
+    expect(inviteLink('K7PQ', { botUsername: 'vakhta_bot', appShortName: '' })).toBe('https://t.me/vakhta_bot?startapp=K7PQ');
+  });
+
+  it('в Telegram «Пригласить» отправляет подготовленное сообщение с кнопкой', async () => {
+    const shareMessage = vi.fn((_id: string, cb?: (sent: boolean) => void) => cb?.(true));
+    window.Telegram = {
+      WebApp: { initData: 'user=x&hash=y', initDataUnsafe: {}, ready() {}, expand() {}, openTelegramLink: vi.fn(), shareMessage, isVersionAtLeast: () => true },
+    };
+    const prepareInvite = vi.fn(() => Promise.resolve('msg-42'));
+    resetStore({ online: online('tg:1'), prepareInvite });
+    render(<LobbyScreen />);
+    fireEvent.click(screen.getByRole('button', { name: ru.lobby.invite }));
+    await vi.waitFor(() => expect(shareMessage).toHaveBeenCalledWith('msg-42', expect.any(Function)));
+    expect(useAppStore.getState().toasts.at(-1)?.text).toBe(ru.lobby.sent);
+    delete window.Telegram;
   });
 });

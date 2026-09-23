@@ -91,6 +91,8 @@ export interface AppState {
   /** После итогов вечера — назад в комнату, не разрывая соединения. */
   backToLobby(): void;
   inviteLink(): string;
+  /** Приглашение-сообщение через бота; null — недоступно, тогда делимся ссылкой. */
+  prepareInvite(): Promise<string | null>;
   client: AppClient | null;
   lastSetup: MatchSetup | null;
   update: ClientUpdate | null;
@@ -488,6 +490,10 @@ export const useAppStore = create<AppState>()((set, get) => {
     inviteLink() {
       const { room, config } = get().online;
       return room ? inviteLink(room.code, config) : '';
+    },
+
+    prepareInvite() {
+      return get().online.client?.prepareInvite() ?? Promise.resolve(null);
     },
 
     toggleDebug() {

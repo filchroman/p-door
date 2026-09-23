@@ -14,6 +14,8 @@ export interface GatewayOptions {
   /** Аватар-заглушка, если у пользователя нет фото. */
   fallbackAvatar: (id: string) => string;
   now?: () => number;
+  /** Подготовить приглашение через бота; нет бота — приглашения кнопкой нет, клиент шлёт ссылку. */
+  prepareInvite?: (telegramUserId: number, code: string, fromName: string) => Promise<string>;
 }
 
 interface Session {
@@ -106,6 +108,16 @@ export class Gateway {
         if (!room) return this.fail(session, 'not_in_room');
         const result = room.act(me.id, parsed.action);
         if (!result.ok) this.fail(session, result.error);
+        return;
+      }
+      case 'invite:prepare': {
+        if (!room) return this.fail(session, 'not_in_room');
+        const userId = me.id.startsWith('tg:') ? Number(me.id.slice(3)) : NaN;
+        const prepare = this.options.prepareInvite;
+        if (!prepare || !Number.isFinite(userId)) return this.fail(session, 'invite_unavailable');
+        void prepare(userId, room.code, me.name)
+          .then((id) => send(session.socket, { type: 'invite:ready', id }))
+          .catch(() => this.fail(session, 'invite_unavailable'));
         return;
       }
     }

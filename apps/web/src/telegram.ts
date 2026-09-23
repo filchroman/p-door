@@ -23,6 +23,8 @@ interface WebApp {
   ready(): void;
   expand(): void;
   openTelegramLink(url: string): void;
+  shareMessage?(id: string, callback?: (sent: boolean) => void): void;
+  isVersionAtLeast?(version: string): boolean;
   colorScheme?: 'light' | 'dark';
 }
 
@@ -77,4 +79,23 @@ export function telegramShare(url: string, text: string): boolean {
   if (!app) return false;
   app.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
   return true;
+}
+
+/** Есть ли у этого клиента Telegram отправка подготовленного сообщения (Bot API 8.0+). */
+export function telegramCanShareMessage(): boolean {
+  const app = webApp();
+  return !!app && typeof app.shareMessage === 'function' && (app.isVersionAtLeast?.('8.0') ?? false);
+}
+
+/** Показать выбор чата и отправить подготовленное ботом сообщение-приглашение. */
+export function telegramShareMessage(id: string): Promise<boolean> {
+  const app = webApp();
+  if (!app || typeof app.shareMessage !== 'function') return Promise.resolve(false);
+  return new Promise((resolve) => {
+    try {
+      app.shareMessage!(id, (sent) => resolve(sent));
+    } catch {
+      resolve(false);
+    }
+  });
 }

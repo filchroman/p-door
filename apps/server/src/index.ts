@@ -1,5 +1,5 @@
 import { buildApp, defaultWebDist } from './app';
-import { createBot, installMenuButton } from './bot/bot';
+import { createBot, installMenuButton, inviteLink, prepareInvite } from './bot/bot';
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? '0.0.0.0';
@@ -8,13 +8,19 @@ const botUsername = process.env.BOT_USERNAME ?? '';
 const appShortName = process.env.APP_SHORT_NAME ?? 'game';
 const publicUrl = (process.env.PUBLIC_URL ?? '').replace(/\/$/, '');
 
-const { app } = buildApp({ botToken, botUsername, appShortName, webDist: process.env.WEB_DIST ?? defaultWebDist() });
+const bot = botToken && publicUrl ? createBot({ token: botToken, appUrl: publicUrl }) : null;
+const { app } = buildApp({
+  botToken,
+  botUsername,
+  appShortName,
+  webDist: process.env.WEB_DIST ?? defaultWebDist(),
+  prepareInvite: bot && botUsername ? (userId, code, fromName) => prepareInvite(bot, userId, inviteLink(botUsername, appShortName, code), code, fromName) : undefined,
+});
 
 await app.listen({ port, host });
 console.log(`vakhta server on http://${host}:${port}`);
 
-if (botToken && publicUrl) {
-  const bot = createBot({ token: botToken, appUrl: publicUrl });
+if (bot) {
   try {
     await installMenuButton(bot, publicUrl);
   } catch (error) {

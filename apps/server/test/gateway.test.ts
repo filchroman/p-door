@@ -64,8 +64,19 @@ function telegramInitData(id: number, name: string, startParam?: string): string
 const anon = (token: string, nick: string) => ({ kind: 'anon' as const, token, nick });
 const settings = { deckSize: 36 as const, turnSeconds: 0 as const, stallRule: 'forcedVidbiy' as const };
 
+const prepared: [number, string, string][] = [];
 beforeEach(async () => {
-  built = buildApp({ botToken: TOKEN, botUsername: 'vakhta_bot', appShortName: 'game', webDist: '' });
+  prepared.length = 0;
+  built = buildApp({
+    botToken: TOKEN,
+    botUsername: 'vakhta_bot',
+    appShortName: 'game',
+    webDist: '',
+    prepareInvite: async (userId, code, fromName) => {
+      prepared.push([userId, code, fromName]);
+      return `msg-${code}`;
+    },
+  });
   await built.app.listen({ port: 0, host: '127.0.0.1' });
   url = `ws://127.0.0.1:${(built.app.server.address() as AddressInfo).port}/ws`;
 });
@@ -169,5 +180,26 @@ describe('шлюз', () => {
     c.send({ type: 'room:create' });
     expect((await c.next('error')).code).toBe('bad_message');
     c.close();
+  });
+
+  it('приглашение-сообщение готовит бот для игрока Telegram; анониму — недоступно', async () => {
+    const roma = await Client.open();
+    roma.send({ type: 'hello', auth: { kind: 'telegram', initData: telegramInitData(1, 'Рома') } });
+    await roma.next('hello:ok');
+    roma.send({ type: 'room:create', settings, playerCount: 3 });
+    const { room } = await roma.next('room:state');
+    roma.send({ type: 'invite:prepare' });
+    expect((await roma.next('invite:ready')).id).toBe(`msg-${room.code}`);
+    expect(prepared).toEqual([[1, room.code, 'Рома']]);
+
+    const anonUser = await Client.open();
+    anonUser.send({ type: 'hello', auth: anon('anon-token-000001', 'Гость') });
+    await anonUser.next('hello:ok');
+    anonUser.send({ type: 'room:join', code: room.code });
+    await anonUser.next('room:state');
+    anonUser.send({ type: 'invite:prepare' });
+    expect((await anonUser.next('error')).code).toBe('invite_unavailable');
+    roma.close();
+    anonUser.close();
   });
 });

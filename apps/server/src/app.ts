@@ -13,6 +13,8 @@ export interface AppConfig {
   appShortName: string;
   /** Папка со сборкой веб-клиента; пусто — статику не раздаём (тесты). */
   webDist: string;
+  /** Подготовка приглашения-сообщения через бота (в тестах и без бота — нет). */
+  prepareInvite?: (telegramUserId: number, code: string, fromName: string) => Promise<string>;
 }
 
 const FALLBACK_AVATARS = ['🙂', '😎', '🤠', '🧐', '🥸', '😺', '🐯', '🦁'];
@@ -47,6 +49,7 @@ export function buildApp(config: AppConfig): BuiltApp {
     botToken: config.botToken,
     fallbackName: 'Игрок',
     fallbackAvatar,
+    prepareInvite: config.prepareInvite,
   });
 
   app.get('/healthz', async () => ({ ok: true, rooms: rooms.size() }));

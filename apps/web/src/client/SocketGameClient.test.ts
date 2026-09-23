@@ -125,4 +125,18 @@ describe('SocketGameClient', () => {
     expect(sockets).toHaveLength(2);
     client.dispose();
   });
+
+  it('prepareInvite: id из invite:ready, null — если сервер отказал', async () => {
+    const client = new SocketGameClient({ url: 'ws://test/ws', auth, connect });
+    sockets[0].open();
+    sockets[0].receive({ type: 'hello:ok', me, room: null });
+    const first = client.prepareInvite();
+    expect(sockets[0].sent.at(-1)).toEqual({ type: 'invite:prepare' });
+    sockets[0].receive({ type: 'invite:ready', id: 'msg-1' });
+    await expect(first).resolves.toBe('msg-1');
+    const second = client.prepareInvite();
+    sockets[0].receive({ type: 'error', code: 'invite_unavailable' });
+    await expect(second).resolves.toBeNull();
+    client.dispose();
+  });
 });

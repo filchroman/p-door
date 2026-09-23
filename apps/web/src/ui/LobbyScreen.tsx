@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ru } from '../i18n/ru';
 import { useAppStore } from '../store/appStore';
-import { telegramShare } from '../telegram';
+import { telegramCanShareMessage, telegramShare, telegramShareMessage } from '../telegram';
 import { Avatar } from './Avatar';
 import { MatchForm } from './MatchForm';
 
@@ -16,6 +16,7 @@ export function LobbyScreen() {
   const configureRoom = useAppStore((s) => s.configureRoom);
   const setFillBots = useAppStore((s) => s.setFillBots);
   const invite = useAppStore((s) => s.inviteLink);
+  const prepareInvite = useAppStore((s) => s.prepareInvite);
   const pushToast = useAppStore((s) => s.pushToast);
   const [copied, setCopied] = useState(false);
   const room = online.room;
@@ -26,6 +27,14 @@ export function LobbyScreen() {
 
   const share = async () => {
     const link = invite();
+    // Лучший вариант: Telegram сам отправит другу сообщение с кнопкой «Войти в комнату».
+    if (telegramCanShareMessage()) {
+      const id = await prepareInvite();
+      if (id && (await telegramShareMessage(id))) {
+        pushToast(ru.lobby.sent);
+        return;
+      }
+    }
     if (telegramShare(link, ru.lobby.shareText)) return;
     if (typeof navigator.share === 'function') {
       try {

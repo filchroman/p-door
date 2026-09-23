@@ -42,8 +42,9 @@ export function roomCodeFromLocation(pathname: string = typeof location === 'und
 
 /** Ссылка-приглашение: в Telegram — прямая ссылка Mini App, иначе адрес страницы с кодом. */
 export function inviteLink(code: string, config: InviteConfig | null, origin: string = typeof location === 'undefined' ? '' : location.origin): string {
-  if (config?.botUsername && config.appShortName) return `https://t.me/${config.botUsername}/${config.appShortName}?startapp=${code}`;
-  return `${origin}/r/${code}`;
+  if (!config?.botUsername) return `${origin}/r/${code}`;
+  // Без короткого имени приложения ссылка ведёт на бота: сработает, если в BotFather включён Main Mini App.
+  return config.appShortName ? `https://t.me/${config.botUsername}/${config.appShortName}?startapp=${code}` : `https://t.me/${config.botUsername}?startapp=${code}`;
 }
 
 /** Адрес WebSocket-шлюза рядом со страницей: в dev его проксирует Vite. */

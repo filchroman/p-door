@@ -82,7 +82,7 @@ test('autopilot at max bot speed reaches the round results smoothly and with exa
     }).observe({ type: 'longtask', buffered: true });
   });
 
-  await page.goto('/');
+  await page.goto('/?debug');
   await page.getByLabel(ru.home.nickLabel).fill('Тест');
   await page.getByRole('button', { name: ru.home.train }).click();
   await page.getByRole('radiogroup', { name: ru.home.players }).getByRole('radio', { name: '3', exact: true }).click();
@@ -132,7 +132,7 @@ test('autopilot at max bot speed reaches the round results smoothly and with exa
  * различных точек между источником и приёмником, ни одна из которых не совпадает с концами.
  */
 test('every move flies: the top layer really carries the card through intermediate points', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?debug');
   await page.getByLabel(ru.home.nickLabel).fill('Тест');
   await page.getByRole('button', { name: ru.home.train }).click();
   await page.getByRole('radiogroup', { name: ru.home.players }).getByRole('radio', { name: '3', exact: true }).click();

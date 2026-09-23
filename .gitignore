@@ -7,3 +7,7 @@ apps/web/src/cards/art/source/
 .claude/
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Docker/деплой
+.env
+apps/server/dist/

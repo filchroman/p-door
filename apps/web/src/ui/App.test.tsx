@@ -23,6 +23,7 @@ describe('App', () => {
     useAppStore.setState({ preload: () => new Promise<void>((resolve) => (release = resolve)) });
     render(<App />);
     expect(screen.getByRole('main')).toHaveClass('app-column');
+    fireEvent.click(screen.getByRole('button', { name: ru.home.train }));
     fireEvent.click(screen.getByRole('button', { name: ru.home.play }));
     expect(screen.getByText(ru.home.loading)).toHaveAttribute('role', 'status');
     await act(async () => release());

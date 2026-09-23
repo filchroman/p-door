@@ -84,6 +84,7 @@ test('autopilot at max bot speed reaches the round results smoothly and with exa
 
   await page.goto('/');
   await page.getByLabel(ru.home.nickLabel).fill('Тест');
+  await page.getByRole('button', { name: ru.home.train }).click();
   await page.getByRole('radiogroup', { name: ru.home.players }).getByRole('radio', { name: '3', exact: true }).click();
   await page.getByRole('radiogroup', { name: ru.home.deck }).getByRole('radio', { name: '36', exact: true }).click();
   await page.getByRole('button', { name: ru.home.play }).click();
@@ -133,6 +134,7 @@ test('autopilot at max bot speed reaches the round results smoothly and with exa
 test('every move flies: the top layer really carries the card through intermediate points', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel(ru.home.nickLabel).fill('Тест');
+  await page.getByRole('button', { name: ru.home.train }).click();
   await page.getByRole('radiogroup', { name: ru.home.players }).getByRole('radio', { name: '3', exact: true }).click();
   await page.getByRole('radiogroup', { name: ru.home.deck }).getByRole('radio', { name: '36', exact: true }).click();
   await page.getByRole('button', { name: ru.home.play }).click();

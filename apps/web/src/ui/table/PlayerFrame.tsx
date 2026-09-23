@@ -2,6 +2,7 @@ import type { PublicPlayer } from '@vakhta/engine';
 import type { CSSProperties, ReactNode } from 'react';
 import type { SeatInfo } from '../../client/types';
 import { ru } from '../../i18n/ru';
+import { Avatar } from '../Avatar';
 import { Countdown } from '../Countdown';
 import '../effects/effects.css';
 import type { StatusKey } from './derive';
@@ -40,7 +41,7 @@ export function PlayerFrame({ seat, player, status, turnEndsAt, turnTotalMs, cau
       <div className="player-id">
         <div className="avatar-frame">
           <div key={caughtSeq ?? 'calm'} className={caughtSeq !== null ? 'avatar-shake' : 'avatar-still'}>
-            <span className="avatar" aria-hidden="true">{seat.avatar}</span>
+            <Avatar value={seat.avatar} />
           </div>
           <PrykupChip owner={player.id} count={player.prykupCount} />
           {player.fouls > 0 && (

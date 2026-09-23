@@ -28,6 +28,7 @@ async function recordFlightKeys(page: Page): Promise<void> {
 async function startTwoPlayerGame(page: Page): Promise<void> {
   await page.goto('/');
   await page.getByLabel(ru.home.nickLabel).fill('Тест');
+  await page.getByRole('button', { name: ru.home.train }).click();
   await page.getByRole('radiogroup', { name: ru.home.players }).getByRole('radio', { name: '2', exact: true }).click();
   await page.getByRole('radiogroup', { name: ru.home.deck }).getByRole('radio', { name: '36', exact: true }).click();
   // Без таймера хода: тест сам решает, когда тянуть и бросать.

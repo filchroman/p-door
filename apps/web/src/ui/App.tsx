@@ -3,6 +3,7 @@ import { useAppStore } from '../store/appStore';
 import { DebugPanel } from './debug/DebugPanel';
 import { GameScreen } from './GameScreen';
 import { HomeScreen } from './HomeScreen';
+import { LobbyScreen } from './LobbyScreen';
 import { Toasts } from './Toasts';
 
 export function App() {
@@ -15,6 +16,7 @@ export function App() {
           {ru.home.loading}
         </div>
       )}
+      {screen === 'lobby' && <LobbyScreen />}
       {screen === 'game' && <GameScreen />}
       <Toasts />
       {screen === 'game' && <DebugPanel />}

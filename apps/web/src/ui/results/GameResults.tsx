@@ -1,5 +1,6 @@
 import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
+import { Avatar } from '../Avatar';
 import { Confetti } from '../effects/Confetti';
 import { LossTable } from './LossTable';
 import './results.css';
@@ -23,7 +24,7 @@ export function GameResults() {
         {loser && !iLost && (
           <div className="results__hero results__hero--win">
             <span className="avatar-frame avatar-frame--big">
-              <span className="avatar" aria-hidden="true">{me.avatar}</span>
+              <Avatar value={me.avatar} />
             </span>
             <strong className="results__win">{ru.results.win}</strong>
           </div>
@@ -31,7 +32,7 @@ export function GameResults() {
         {iLost && (
           <div className="results__hero results__hero--loss">
             <span className="avatar-frame avatar-frame--big is-sad">
-              <span className="avatar" aria-hidden="true">{me.avatar}</span>
+              <Avatar value={me.avatar} />
               <span className="results__stamp" aria-hidden="true">{ru.fx.vakhterStamp}</span>
             </span>
             <strong>{ru.results.youLost}</strong>

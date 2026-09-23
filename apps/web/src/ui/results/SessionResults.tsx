@@ -1,5 +1,6 @@
 import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
+import { Avatar } from '../Avatar';
 import { Confetti } from '../effects/Confetti';
 import { LossTable } from './LossTable';
 import './results.css';
@@ -7,6 +8,7 @@ import './results.css';
 export function SessionResults() {
   const update = useAppStore((s) => s.update)!;
   const goHome = useAppStore((s) => s.goHome);
+  const inRoom = useAppStore((s) => s.online.room !== null && s.client === s.online.client);
   const { session, players } = update;
   const vakhter = players.find((p) => p.id === session.vakhterId) ?? null;
   return (
@@ -18,7 +20,7 @@ export function SessionResults() {
           <div className="vakhter">
             <span className="vakhter__crown" aria-hidden="true">👑</span>
             <span className="avatar-frame avatar-frame--big">
-              <span className="avatar" aria-hidden="true">{vakhter.avatar}</span>
+              <Avatar value={vakhter.avatar} />
             </span>
             <strong className="vakhter__name">{vakhter.name}</strong>
           </div>
@@ -27,7 +29,7 @@ export function SessionResults() {
         )}
         <LossTable players={players} losses={session.losses} highlight={session.vakhterId} />
         <button type="button" className="btn btn--primary" onClick={goHome}>
-          {ru.session.home}
+          {inRoom ? ru.lobby.toLobby : ru.session.home}
         </button>
       </div>
     </div>

@@ -257,3 +257,31 @@ body {
 
 .home-screen { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 24px; }
 .loading-screen { flex: 1; display: grid; place-items: center; font: 400 2rem var(--font-script); color: #fff7e0; }
+
+/* Главная и лобби (онлайн) */
+.profile { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.profile__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.profile__name { font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile__status { font-size: 0.8rem; color: #6b5f4c; }
+.profile__status.is-bad { color: var(--red); }
+.avatar--photo { padding: 0; overflow: hidden; }
+.avatar--photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.menu { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+.menu .btn--play { margin: var(--space-1) auto; }
+.match-form { margin: 0; padding: 0; border: 0; min-width: 0; }
+.match-form:disabled { opacity: 0.7; }
+.field__input--code { text-align: center; font-size: 1.6rem; letter-spacing: 0.3em; text-transform: uppercase; font-weight: 700; }
+.lobby__code { display: flex; align-items: baseline; justify-content: center; gap: var(--space-2); }
+.lobby__code-value { font-size: 2.4rem; letter-spacing: 0.25em; font-weight: 700; color: var(--ink); }
+.lobby__invite { width: 100%; margin: var(--space-2) 0 var(--space-3); }
+.seat-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.seat-list__item { display: flex; align-items: center; gap: var(--space-3); }
+.seat-list__item .avatar-frame { width: 44px; height: 44px; padding: 3px; }
+.seat-list__item .avatar { font-size: 1.4rem; border-radius: 7px; }
+.seat-list__item.is-offline { opacity: 0.6; }
+.seat-list__name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat-list__offline { font-size: 0.8rem; color: #6b5f4c; }
+.check { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0; font-weight: 700; min-height: 44px; }
+.check input { width: 22px; height: 22px; accent-color: var(--gold-dark); }
+.lobby__waiting { margin: var(--space-2) 0; text-align: center; color: #6b5f4c; font-weight: 700; }
+.loss-table__avatar { display: inline-grid; width: 28px; height: 28px; border-radius: 6px; overflow: hidden; place-items: center; }

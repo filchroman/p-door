@@ -3,7 +3,11 @@ import { create } from 'zustand';
 import { preloadDeck } from '../cards/preload';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import type { BotSpeed, LogEntry } from '../client/debug';
-import type { AppClient, ClientUpdate, Intent } from '../client/types';
+import { SocketGameClient, type Connection } from '../client/SocketGameClient';
+import type { AppClient, ClientUpdate, Intent, MatchSettings } from '../client/types';
+import type { Auth, Me, RoomState, ServerErrorCode } from '@vakhta/protocol';
+import { buildAuth, inviteLink, roomCodeFromLocation, wsUrl, type InviteConfig } from './online';
+import { ru } from '../i18n/ru';
 import { NO_FLIGHTS, dealFlights, flightsFor, type Flights } from '../ui/anim/flights';
 import { DWELL_MS, STAGGER_MS, flyMs, sweepMs } from '../ui/anim/motion';
 import type { Origin } from '../ui/anim/origins';
@@ -28,7 +32,7 @@ import {
 import { exposeView } from './expose';
 import { CAPTION_FADE_MS, TRUMP_REVEAL_MS, UpdatePump, captionHoldMs } from './updatePump';
 
-export type Screen = 'home' | 'loading' | 'game';
+export type Screen = 'home' | 'loading' | 'game' | 'lobby';
 
 export interface Toast extends ToastSpec {
   id: number;
@@ -60,8 +64,33 @@ export interface DebugSettings {
   autopilot: boolean;
 }
 
+/** Онлайн: сетевой клиент, «я» по данным сервера, комната и состояние связи. */
+export interface OnlineState {
+  client: SocketGameClient | null;
+  me: Me | null;
+  room: RoomState | null;
+  connection: Connection | 'idle';
+  config: InviteConfig | null;
+  /** Код из ссылки-приглашения или адреса /r/CODE: войти сразу после подключения. */
+  pendingCode: string | null;
+}
+
 export interface AppState {
   screen: Screen;
+  online: OnlineState;
+  makeOnlineClient: (auth: Auth, room: string | null) => SocketGameClient;
+  fetchConfig: () => Promise<InviteConfig | null>;
+  /** Подключиться к серверу (или переподключиться) под своим именем; ник — для входа вне Telegram. */
+  connect(nick: string): void;
+  createRoom(settings: MatchSettings, playerCount: number): void;
+  joinRoom(code: string): void;
+  leaveRoom(): void;
+  startRoom(): void;
+  configureRoom(settings: MatchSettings, playerCount: number): void;
+  setFillBots(on: boolean): void;
+  /** После итогов вечера — назад в комнату, не разрывая соединения. */
+  backToLobby(): void;
+  inviteLink(): string;
   client: AppClient | null;
   lastSetup: MatchSetup | null;
   update: ClientUpdate | null;
@@ -264,7 +293,14 @@ export const useAppStore = create<AppState>()((set, get) => {
 
   const attach = (client: AppClient) => {
     detach?.();
-    const offUpdate = client.subscribe((update) => pump.push(update));
+    const offUpdate = client.subscribe((update) => {
+      // Онлайн: первый срез партии открывает стол из лобби.
+      if (get().online.client === client && get().screen !== 'game') {
+        draggedKey = null;
+        set({ screen: 'game', marks: emptyMarks(update.session.gameNumber), selection: null, update: null });
+      }
+      pump.push(update);
+    });
     const offError = client.onError((code) => {
       get().pushToast(errorText(code, get().update?.view ?? null), 'error');
       vibrate(VIBRATE_ERROR);
@@ -284,6 +320,16 @@ export const useAppStore = create<AppState>()((set, get) => {
 
   return {
     screen: 'home',
+    online: { client: null, me: null, room: null, connection: 'idle', config: null, pendingCode: roomCodeFromLocation() },
+    makeOnlineClient: (auth, room) => new SocketGameClient({ url: wsUrl(), auth, room }),
+    fetchConfig: async () => {
+      try {
+        const res = await fetch('/config.json');
+        return res.ok ? ((await res.json()) as InviteConfig) : null;
+      } catch {
+        return null;
+      }
+    },
     client: null,
     lastSetup: null,
     update: null,
@@ -359,6 +405,12 @@ export const useAppStore = create<AppState>()((set, get) => {
     },
 
     goHome() {
+      // Локальная партия: убрать хост. Онлайн: соединение живёт, пока игрок сам не выйдет из комнаты.
+      const { online } = get();
+      if (online.client && get().client === online.client) {
+        get().backToLobby();
+        if (online.room) return;
+      }
       detach?.();
       detach = null;
       stopSweep();
@@ -372,6 +424,70 @@ export const useAppStore = create<AppState>()((set, get) => {
       const setup = get().lastSetup;
       get().goHome();
       if (setup) await get().startMatch(setup);
+    },
+
+    connect(nick) {
+      const { online } = get();
+      online.client?.dispose();
+      const client = get().makeOnlineClient(buildAuth(nick), online.pendingCode);
+      set({ client, online: { ...online, client, connection: 'connecting', pendingCode: null } });
+      void get().fetchConfig().then((config) => set({ online: { ...get().online, config } }));
+      client.onRoom(({ room, me, connection, left }) => {
+        const state = get();
+        if (state.online.client !== client) return;
+        set({ online: { ...state.online, room, me, connection } });
+        if (connection === 'lost') state.pushToast(ru.lobby.lost, 'error');
+        if (left) {
+          if (state.screen === 'lobby' || state.screen === 'game') set({ screen: 'home', update: null });
+          return;
+        }
+        if (room && state.screen === 'home') {
+          set({ screen: 'lobby' });
+          void state.preload(room.settings.deckSize);
+        }
+        if (room && state.screen === 'lobby' && room.status !== 'playing') void state.preload(room.settings.deckSize);
+      });
+      client.onRoomError((code: ServerErrorCode) => get().pushToast(ru.lobby.errors[code] ?? code, 'error'));
+      attach(client);
+    },
+
+    createRoom(settings, playerCount) {
+      get().online.client?.createRoom(settings, playerCount);
+    },
+
+    joinRoom(code) {
+      get().online.client?.joinRoom(code);
+    },
+
+    leaveRoom() {
+      get().online.client?.leaveRoom();
+      set({ screen: 'home', update: null, selection: null });
+    },
+
+    startRoom() {
+      get().online.client?.startRoom();
+    },
+
+    configureRoom(settings, playerCount) {
+      get().online.client?.configureRoom(settings, playerCount);
+    },
+
+    setFillBots(on) {
+      get().online.client?.setFillBots(on);
+    },
+
+    backToLobby() {
+      pump.clear();
+      stopCelebration();
+      stopSweep();
+      stopActing();
+      stopReveal();
+      set({ screen: 'lobby', update: null, selection: null, sweep: null, celebrating: false, acting: null, flights: NO_FLIGHTS });
+    },
+
+    inviteLink() {
+      const { room, config } = get().online;
+      return room ? inviteLink(room.code, config) : '';
     },
 
     toggleDebug() {

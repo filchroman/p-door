@@ -21,6 +21,7 @@ function fanClass(index: number, total: number): string {
 export function TableFan({ table }: { table: TableCard[] }) {
   const sweep = useAppStore((s) => s.sweep);
   const flights = useAppStore((s) => s.flights.cards);
+  const settled = useAppStore((s) => s.flights.settled);
   return (
     <div className="table-stage">
       <div className="table-fan" data-drop="table" aria-label={ru.table.tableZone} {...zoneProps('table', table.length)}>
@@ -33,7 +34,7 @@ export function TableFan({ table }: { table: TableCard[] }) {
             className={fanClass(i, table.length)}
             style={{ '--i': i } as CSSProperties}
           >
-            <AnimatedCard id={cardKey(t.card)} enter={!flights[cardKey(t.card)]}>
+            <AnimatedCard id={cardKey(t.card)} enter={!flights[cardKey(t.card)] && !settled[cardKey(t.card)]}>
               <PlayingCard card={t.card} />
             </AnimatedCard>
           </FlyFrom>

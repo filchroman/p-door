@@ -39,25 +39,22 @@ export interface MotionTarget {
 }
 
 export interface CardMotion {
-  layoutId: boolean;
   initial: MotionTarget;
   animate: MotionTarget;
   transition: MotionTransition;
 }
 
 /**
- * Только transform и opacity (спека §2a); speed > 1 — очередь догоняет состояние (§2b).
- * Ухода здесь нет: карта либо переезжает в другую зону одним элементом по общему layoutId,
- * либо уходит в отбой отдельным слоем (sweepMs) — в зоне остаются ровно карты среза.
+ * Появление карты: только transform и opacity (спека §2a); speed > 1 — очередь догоняет
+ * состояние (§2b). Перелёты между зонами — у FlyFrom, уход в отбой — отдельный слой (sweepMs).
  */
 export function cardMotion({ reduced, speed }: { reduced: boolean; speed: number }): CardMotion {
   const k = Math.max(1, speed);
   if (reduced) {
     const fade = { duration: FADE_MS / 1000 / k, ease: 'easeOut' as const };
-    return { layoutId: false, initial: { opacity: 0 }, animate: { opacity: 1 }, transition: fade };
+    return { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: fade };
   }
   return {
-    layoutId: true,
     initial: { y: -40, scale: 0.85 },
     animate: { y: 0, scale: 1 },
     transition: { duration: FLY_MS / 1000 / k, ease: 'easeOut' },

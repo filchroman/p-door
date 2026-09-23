@@ -76,6 +76,6 @@ describe('flightsFor: откуда летит карта (§2c.1)', () => {
 
   it('нет источника на экране — нет и перелёта: лучше без него, чем из угла экрана', () => {
     const update = makeUpdate(p1(), 'A', { events: [{ type: 'placed', playerId: 'B', to: 'A', card: c('QS') }] });
-    expect(flightsFor(null, update)).toEqual({ cards: {}, delays: {}, hands: {}, hand: null });
+    expect(flightsFor(null, update)).toEqual({ cards: {}, delays: {}, settled: {}, hands: {}, hand: null });
   });
 });

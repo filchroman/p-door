@@ -187,8 +187,10 @@ export const useAppStore = create<AppState>()((set, get) => {
     const seq = ++actSeq;
     const flights = !motionEnabled || reduced ? NO_FLIGHTS : fresh ? dealFlights(update, STAGGER_MS) : flightsFor(prev, update, seq);
     // Я перетащил карту сам — она уже у цели, везти её туда второй раз незачем.
-    if (draggedKey && update.events.some((e) => 'playerId' in e && e.playerId === update.view.me) ) {
+    if (draggedKey && actingFrom(update, 0, 0)?.id === update.view.me) {
       delete flights.cards[draggedKey];
+      // И появления у приёмника тоже нет: карта уже лежит там, куда её положили.
+      flights.settled = { ...flights.settled, [draggedKey]: true };
       draggedKey = null;
     }
     // Закрывающая карта сначала долетает до стола (её место в руке снято до перерисовки),

@@ -5,15 +5,10 @@ import './anim.css';
 import { cardMotion, setWillChange } from './motion';
 
 export interface AnimatedCardProps {
-  /** Ключ карты (cardKey) — общий layoutId: карта перелетает между зонами как один элемент. */
+  /** Ключ карты (cardKey): по `data-card` перелёт находит место карты на прошлом кадре (flights.ts). */
   id: string;
   className?: string;
   style?: CSSProperties;
-  /**
-   * Перестроение веера несёт контейнер (большой веер руки): карта не обмеряет себя сама.
-   * Общий layoutId при этом остаётся — перелёт между зонами (рука ↔ стол) никуда не девается.
-   */
-  carried?: boolean;
   /** false — появление карты показывает кто-то другой (FlyFrom), своего «падения сверху» тут нет. */
   enter?: boolean;
   children: ReactNode;
@@ -21,10 +16,10 @@ export interface AnimatedCardProps {
 
 /**
  * Карта живёт ровно столько, сколько она есть в срезе: ушла из среза — ушла из DOM тем же кадром.
- * Доигрывающих уход карт поверх зоны здесь нет: прерванный уход оставлял их в DOM навсегда
- * (призраки на столе), поэтому отбой рисуется отдельным слоем — см. TableFan.
+ * Перелёты между зонами играет FlyFrom по снятым коробкам; общего layoutId здесь больше нет —
+ * он вторично «довозил» карту, которую игрок уже перетащил сам. Отбой — отдельный слой (TableFan).
  */
-export function AnimatedCard({ id, className, style, carried = false, enter = true, children }: AnimatedCardProps) {
+export function AnimatedCard({ id, className, style, enter = true, children }: AnimatedCardProps) {
   const enabled = useAppStore((s) => s.motionEnabled);
   const speed = useAppStore((s) => s.animSpeed);
   const reduced = useReducedMotion() ?? false;
@@ -44,9 +39,6 @@ export function AnimatedCard({ id, className, style, carried = false, enter = tr
   return (
     <motion.div
       ref={ref}
-      layout={m.layoutId && !carried}
-      layoutId={m.layoutId ? id : undefined}
-      data-layout-id={m.layoutId ? id : undefined}
       data-card={id}
       className={classes}
       style={style as MotionStyle}
@@ -55,8 +47,6 @@ export function AnimatedCard({ id, className, style, carried = false, enter = tr
       transition={m.transition}
       onAnimationStart={on}
       onAnimationComplete={off}
-      onLayoutAnimationStart={on}
-      onLayoutAnimationComplete={off}
     >
       {children}
     </motion.div>

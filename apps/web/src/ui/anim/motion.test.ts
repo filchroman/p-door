@@ -8,7 +8,6 @@ describe('cardMotion', () => {
   it('animates only transform and opacity, 380–520 ms, ease-out (§2c.1)', () => {
     const m = cardMotion({ reduced: false, speed: 1 });
     for (const part of [m.initial, m.animate]) for (const key of keysOf(part)) expect(ALLOWED.has(key)).toBe(true);
-    expect(m.layoutId).toBe(true);
     expect(m.transition.duration * 1000).toBe(FLY_MS);
     expect(FLY_MS).toBeGreaterThanOrEqual(380);
     expect(FLY_MS).toBeLessThanOrEqual(520);
@@ -25,7 +24,6 @@ describe('cardMotion', () => {
 
   it('reduced motion: a short fade, no flight', () => {
     const m = cardMotion({ reduced: true, speed: 1 });
-    expect(m.layoutId).toBe(false);
     expect([...keysOf(m.initial), ...keysOf(m.animate)].every((k) => k === 'opacity')).toBe(true);
     expect(m.transition.duration).toBeLessThanOrEqual(0.15);
   });

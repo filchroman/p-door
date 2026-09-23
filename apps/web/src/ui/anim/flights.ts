@@ -25,13 +25,15 @@ export interface Flights {
   cards: Record<string, Origin | string>;
   /** Ключ карты → задержка старта (каскад раздачи, спека §2c.3). */
   delays: Record<string, number>;
+  /** Карты, которые игрок положил сам (перетащил): приёмник рисует их сразу, без перелёта и появления. */
+  settled: Record<string, true>;
   /** Закрытые руки соперников: рубашка летит оттуда, откуда ушла карта. */
   hands: Record<PlayerId, HandFlight>;
   /** Моя рука: прилетевшие карты и их общая точка старта. */
   hand: HandFlight | null;
 }
 
-export const NO_FLIGHTS: Flights = { cards: {}, delays: {}, hands: {}, hand: null };
+export const NO_FLIGHTS: Flights = { cards: {}, delays: {}, settled: {}, hands: {}, hand: null };
 
 const originOf = (key: string, ...zones: string[]): Origin | null =>
   cardOrigin(key) ?? zones.reduce<Origin | null>((found, zone) => found ?? zoneOrigin(zone), null);
@@ -101,7 +103,7 @@ export function flightsFor(prev: ClientUpdate | null, update: ClientUpdate, seq 
       }
     }
   }
-  return { cards, delays: {}, hands, hand };
+  return { cards, delays: {}, settled: {}, hands, hand };
 }
 
 /**
@@ -119,5 +121,5 @@ export function dealFlights(update: ClientUpdate, staggerMs: number): Flights {
     cards[key] = 'deck';
     delays[key] = i * staggerMs;
   });
-  return { cards, delays, hands: {}, hand: null };
+  return { cards, delays, settled: {}, hands: {}, hand: null };
 }

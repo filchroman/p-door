@@ -124,6 +124,8 @@
 .draggable.is-idle { cursor: default; }
 .draggable.is-selected .card::after, .draggable.is-dragging .card::after { opacity: 1; }
 .draggable.is-dragging { position: relative; z-index: 40; cursor: grabbing; --shadow-opacity: 1; }
+/* Брошенная карта лежит у цели поверх зоны, пока её не заменит срез. */
+.draggable.is-dropped { position: relative; z-index: 40; --shadow-opacity: 1; }
 
 /* «ВАХТА!»: выскакивает с overshoot, пульсирует, пока окно открыто, гаснет, когда закрылось (§2c.3). */
 .vakhta-btn {

@@ -17,16 +17,14 @@ export interface DraggableCardProps {
    * на другой компонент пересоздавало карту, и она заново «падала сверху» при каждом вытягивании.
    */
   enabled?: boolean;
-  /** Карта не обмеряет свою раскладку (стопка фазы 1 не перестраивается): перелёты играет FlyFrom. */
-  carried?: boolean;
 }
 
-export function DraggableCard({ card, selected, onTap, onDrop, accept, enter, enabled = true, carried = false }: DraggableCardProps) {
+export function DraggableCard({ card, selected, onTap, onDrop, accept, enter, enabled = true }: DraggableCardProps) {
   const drag = useDrag({ onTap, onDrop, accept });
-  const classes = ['draggable', enabled ? '' : 'is-idle', selected ? 'is-selected' : '', drag.dragging ? 'is-dragging' : ''].filter(Boolean).join(' ');
+  const classes = ['draggable', enabled ? '' : 'is-idle', selected ? 'is-selected' : '', drag.dragging ? 'is-dragging' : '', drag.dropped ? 'is-dropped' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} role={enabled ? 'button' : undefined} aria-pressed={enabled ? selected : undefined} aria-label={enabled ? cardLabel(card) : undefined} {...(enabled ? drag.handlers : {})}>
-      <AnimatedCard id={cardKey(card)} enter={enter} carried={carried}>
+      <AnimatedCard id={cardKey(card)} enter={enter}>
         <PlayingCard card={card} />
       </AnimatedCard>
     </div>

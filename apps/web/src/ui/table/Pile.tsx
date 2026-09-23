@@ -30,6 +30,7 @@ export function Pile({ player, mine = false, targetable, onTarget, topDraggable,
   // Карта не появляется на стопке из ниоткуда: она прилетает оттуда, где лежала (спека §2c.1).
   const flight = useAppStore((s) => (topKey ? (s.flights.cards[topKey] ?? null) : null));
   const delay = useAppStore((s) => (topKey ? (s.flights.delays[topKey] ?? 0) : 0));
+  const settled = useAppStore((s) => (topKey ? !!s.flights.settled[topKey] : false));
   // Стопка показывает высоту, а не каждую карту: сверху видна верхняя, под ней — не больше
   // STACK_CAP слоёв (спека §2c.2), точная высота стоит рядом цифрой.
   const shown = Math.min(player.stackCount, STACK_CAP);
@@ -61,9 +62,9 @@ export function Pile({ player, mine = false, targetable, onTarget, topDraggable,
               ghost={flight === 'deck' ? <FlipIn flip><PlayingCard card={top} /></FlipIn> : <PlayingCard card={top} />}
             >
               {mine ? (
-                <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} enter={!flight} enabled={topDraggable} carried />
+                <DraggableCard card={top} selected={topSelected} onTap={onTopTap} onDrop={onTopDrop} accept={accept} enter={!flight && !settled} enabled={topDraggable} />
               ) : (
-                <AnimatedCard id={topKey} enter={!flight} carried>
+                <AnimatedCard id={topKey} enter={!flight && !settled}>
                   <PlayingCard card={top} />
                 </AnimatedCard>
               )}

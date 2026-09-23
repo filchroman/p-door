@@ -18,8 +18,7 @@ import { zoneProps } from './zones';
 
 /**
  * Больше — перестроение веера несёт контейнер одной трансформацией вместо N обмеров карт
- * (бюджет ~12 летящих карт, спека §2a). Сами перелёты (общий layoutId) остаются у карт всегда:
- * иначе в обычной партии — 3 игрока, 36 карт, ~10 карт на руке — карта не летела бы никуда.
+ * (бюджет ~12 летящих карт, спека §2a). Сами перелёты играет FlyFrom по снятым коробкам.
  */
 export const MAX_ANIMATED_HAND = 6;
 const isTable = (id: string) => id === 'table';
@@ -44,12 +43,10 @@ interface HandCardProps {
   from: Origin | null;
   /** Каскад прикупа: карты вылетают по одной (спека §2c.3). */
   delayMs: number;
-  /** Веер перестраивает контейнер: карта не обмеряет себя, но свой layoutId сохраняет. */
-  carried: boolean;
   onPlay(code: string, dragged: boolean): void;
 }
 
-const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, from, delayMs, carried, onPlay }: HandCardProps) {
+const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, from, delayMs, onPlay }: HandCardProps) {
   const card = useMemo(() => parseCard(code), [code]);
   const drag = useDrag({
     onTap: () => {
@@ -64,7 +61,7 @@ const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipI
   return (
     <div className={classes} data-legal={legal} style={{ '--angle': `${angle}deg` } as CSSProperties} {...drag.handlers}>
       <FlyFrom from={from} delayMs={delayMs} ghost={<PlayingCard card={card} />}>
-        <AnimatedCard id={code} carried={carried} enter={!flipIn && !from}>
+        <AnimatedCard id={code} enter={!flipIn && !from}>
           <FlipIn flip={flipIn}>
             <PlayingCard card={card} />
           </FlipIn>
@@ -113,7 +110,6 @@ export const Hand = memo(function Hand() {
           flipIn={flipIn}
           from={handFlight && handFlight.cards.includes(code) ? handFlight.from : null}
           delayMs={handFlight ? Math.max(0, handFlight.cards.indexOf(code)) * STAGGER_MS : 0}
-          carried={big}
           onPlay={onPlay}
         />
       ))}

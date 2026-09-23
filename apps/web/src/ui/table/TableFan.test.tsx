@@ -15,7 +15,7 @@ const inZone = (root: ParentNode) => root.querySelector<HTMLElement>('[data-zone
 beforeEach(() => resetStore({ motionEnabled: true }));
 
 describe('TableFan: how a card leaves the table', () => {
-  it('a taken bottom card leaves at once — it travels into the hand as one element by its shared layoutId', async () => {
+  it('a taken bottom card leaves the zone at once — its flight into the hand is played by the hand', async () => {
     const { container, rerender } = render(<TableFan table={table(['9H', 'JH'])} />);
     expect(nine()).not.toBeNull();
     rerender(<TableFan table={table(['JH'])} />);

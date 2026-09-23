@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ru } from '../../i18n/ru';
 import { useAppStore } from '../../store/appStore';
 import { phase1State } from '../../test/states';
 import { makeUpdate, resetStore } from '../../test/updates';
 import { Phase1Screen } from './Phase1Screen';
+import { DROP_HOLD_MS } from './useDrag';
 import { zoneMismatches } from './zones';
 
 const send = vi.fn();
@@ -16,7 +17,11 @@ const rect = (el: Element, left: number, top: number) => {
   el.getBoundingClientRect = () => ({ left, top, right: left + 60, bottom: top + 90, width: 60, height: 90, x: left, y: top, toJSON: () => ({}) });
 };
 
-beforeEach(() => send.mockReset());
+beforeEach(() => {
+  send.mockReset();
+  vi.useFakeTimers();
+});
+afterEach(() => vi.useRealTimers());
 
 describe('Phase1Screen', () => {
   it('tap on the deck draws', () => {
@@ -119,8 +124,13 @@ describe('Phase1Screen', () => {
     fireEvent.pointerUp(card, { clientX: 100, clientY: 120, pointerId: 1 });
     // Перетащил сам — стор знает об этом и не повезёт карту к цели второй раз.
     expect(send).toHaveBeenCalledWith({ type: 'placeDrawn', to: 'B' }, { dragged: true });
-    expect(card.style.transform).toBe('');
+    // Карта остаётся лежать у цели (в центре зоны), а не отпрыгивает назад в слот.
+    expect(card.style.transform).toBe('translate(30px, 45px)');
+    expect(card).toHaveClass('is-dropped');
     expect(screen.getByTestId('pile-B')).not.toHaveClass('is-snap');
+    // Если срез так и не пришёл (хост отверг ход), карта возвращается сама.
+    act(() => vi.advanceTimersByTime(DROP_HOLD_MS));
+    expect(card.style.transform).toBe('');
   });
 
   it('a non-primary button neither drags nor plays', () => {

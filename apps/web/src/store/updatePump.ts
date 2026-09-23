@@ -16,6 +16,11 @@ export const STEP_MS = FLY_MS + STEP_PAUSE_MS;
 export const MAX_ANIM_SPEED = 4;
 export const CATCHUP_PAUSE_MS = 60;
 export const MIN_STEP_MS = FLY_MIN_MS + CATCHUP_PAUSE_MS;
+/**
+ * Показ козыря (заказчик): последняя карта колоды вылетает в слот, переворачивается и лежит,
+ * прежде чем откроется фаза 2 — иначе переход происходит мгновенно и её никто не видит.
+ */
+export const TRUMP_REVEAL_MS = FLY_MS + 1000;
 /** Сколько висит подпись «кто что сделал», если следующего действия так и не случилось. */
 export const CAPTION_MS = 1600;
 /** Подпись держится не меньше этого даже на догоняющей очереди (спека §2c.1: ≥ 900 мс). */

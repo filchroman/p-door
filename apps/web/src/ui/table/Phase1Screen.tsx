@@ -32,7 +32,7 @@ export function Phase1Screen() {
       topDraggable={player.id === view.me && canMoveTop}
       topSelected={selection?.kind === 'ownTop'}
       onTopTap={() => select(selection?.kind === 'ownTop' ? null : { kind: 'ownTop' })}
-      onTopDrop={(to) => send({ type: 'moveOwnTop', to })}
+      onTopDrop={(to) => send({ type: 'moveOwnTop', to }, { dragged: true })}
       accept={isPile}
     />
   );
@@ -49,7 +49,7 @@ export function Phase1Screen() {
           drawnSelected={selection?.kind === 'drawn'}
           onDraw={() => send({ type: 'draw' })}
           onDrawnTap={() => select(selection?.kind === 'drawn' ? null : { kind: 'drawn' })}
-          onDrawnDrop={(to) => send({ type: 'placeDrawn', to })}
+          onDrawnDrop={(to) => send({ type: 'placeDrawn', to }, { dragged: true })}
           accept={isPile}
         />
       }

@@ -46,17 +46,17 @@ interface HandCardProps {
   delayMs: number;
   /** Веер перестраивает контейнер: карта не обмеряет себя, но свой layoutId сохраняет. */
   carried: boolean;
-  onPlay(code: string): void;
+  onPlay(code: string, dragged: boolean): void;
 }
 
 const HandCard = memo(function HandCard({ code, legal, dim, angle, myTurn, flipIn, from, delayMs, carried, onPlay }: HandCardProps) {
   const card = useMemo(() => parseCard(code), [code]);
   const drag = useDrag({
     onTap: () => {
-      if (myTurn) onPlay(code);
+      if (myTurn) onPlay(code, false);
     },
     onDrop: () => {
-      if (myTurn) onPlay(code);
+      if (myTurn) onPlay(code, true);
     },
     accept: isTable,
   });
@@ -83,7 +83,7 @@ export const Hand = memo(function Hand() {
   const flipIn = useAppStore(flipOf);
   const handFlight = useAppStore(handFlightOf);
   const send = useAppStore((s) => s.send);
-  const onPlay = useCallback((code: string) => send({ type: 'play', card: parseCard(code) }), [send]);
+  const onPlay = useCallback((code: string, dragged: boolean) => send({ type: 'play', card: parseCard(code) }, { dragged }), [send]);
   const codes = handKey ? handKey.split(' ') : [];
   const legal = new Set(legalKey ? legalKey.split(' ') : []);
   const big = codes.length > MAX_ANIMATED_HAND;

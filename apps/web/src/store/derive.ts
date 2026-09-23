@@ -134,6 +134,23 @@ export function sweptCards(prev: ClientUpdate | null, update: ClientUpdate): Car
   return [...before, ...played];
 }
 
+/**
+ * Показ козыря (заказчик): движок одним срезом и вытягивает последнюю карту, и переводит игру в
+ * штраф/фазу 2. Чтобы карту увидели, сначала показывается промежуточный срез — стол фазы 1 с
+ * пустой колодой и этой картой в слоте вытянутой, — а настоящий срез приходит после паузы.
+ * Счёт карт сходится: колода −1, вытянутая +1, стопки прежние.
+ */
+export function trumpRevealUpdate(prev: ClientUpdate | null, update: ClientUpdate): ClientUpdate | null {
+  if (!prev || prev.view.phase !== 'phase1' || prev.view.drawn) return null;
+  const drew = update.events.find((event) => event.type === 'drew');
+  if (!drew || drew.type !== 'drew' || !update.events.some((event) => event.type === 'trump')) return null;
+  return {
+    ...update,
+    view: { ...prev.view, deckCount: 0, drawn: drew.card, turn: drew.playerId, vakhtaOpen: false },
+    events: update.events.filter((event) => event.type === 'drew' || event.type === 'trump'),
+  };
+}
+
 /** Кто сейчас действует и что именно сделал: подсветка рамки и подпись рядом с ней (спека §2c). */
 export interface ActingFx {
   id: PlayerId;
@@ -150,10 +167,12 @@ export interface ActingFx {
  */
 export function actingFrom(update: ClientUpdate, seq: number, holdMs: number): ActingFx | null {
   const act = (id: PlayerId, text: string): ActingFx => ({ id, text, seq, holdMs });
+  const trump = update.events.find((event) => event.type === 'trump');
   for (const event of update.events) {
     switch (event.type) {
       case 'drew':
-        return act(event.playerId, ru.act.drew);
+        // Последняя карта колоды — козырь: так и подписываем.
+        return act(event.playerId, trump && trump.type === 'trump' ? ru.act.drewTrump(ru.suitNames[trump.suit]) : ru.act.drew);
       case 'kept':
         return act(event.playerId, ru.act.kept);
       case 'played':

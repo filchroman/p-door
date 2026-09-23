@@ -78,7 +78,7 @@ function SweptTable({ sweep }: { sweep: TableSweep }) {
     '--sweep-s': target.s,
   } as CSSProperties;
   return (
-    <div ref={ref} className={`table-sweep${landing ? ' is-landing' : ''}`} aria-hidden style={style}>
+    <div ref={ref} className={`table-sweep${sweep.waiting ? ' is-landing' : ''}`} aria-hidden style={style}>
       {sweep.cards.map((card, i) => (
         <FlyFrom
           key={cardKey(card)}

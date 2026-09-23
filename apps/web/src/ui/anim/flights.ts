@@ -21,15 +21,17 @@ export interface HandFlight {
  * это и есть начало перелёта. Приёмник получает точку и проигрывает перелёт сам (`FlyFrom`).
  */
 export interface Flights {
-  /** Ключ карты → откуда лететь: открытые приёмники (стопки и стол). */
-  cards: Record<string, Origin>;
+  /** Ключ карты → откуда лететь: снятая коробка или имя зоны, которую приёмник обмерит сам. */
+  cards: Record<string, Origin | string>;
+  /** Ключ карты → задержка старта (каскад раздачи, спека §2c.3). */
+  delays: Record<string, number>;
   /** Закрытые руки соперников: рубашка летит оттуда, откуда ушла карта. */
   hands: Record<PlayerId, HandFlight>;
   /** Моя рука: прилетевшие карты и их общая точка старта. */
   hand: HandFlight | null;
 }
 
-export const NO_FLIGHTS: Flights = { cards: {}, hands: {}, hand: null };
+export const NO_FLIGHTS: Flights = { cards: {}, delays: {}, hands: {}, hand: null };
 
 const originOf = (key: string, ...zones: string[]): Origin | null =>
   cardOrigin(key) ?? zones.reduce<Origin | null>((found, zone) => found ?? zoneOrigin(zone), null);
@@ -99,5 +101,23 @@ export function flightsFor(prev: ClientUpdate | null, update: ClientUpdate, seq 
       }
     }
   }
-  return { cards, hands, hand };
+  return { cards, delays: {}, hands, hand };
+}
+
+/**
+ * Раздача в начале партии (заказчик): открытая карта каждого игрока прилетает из колоды, по
+ * очереди мест, с каскадом. Колода обмеряется приёмником при появлении — на первом кадре партии
+ * её ещё нет на экране прошлого среза.
+ */
+export function dealFlights(update: ClientUpdate, staggerMs: number): Flights {
+  const cards: Flights['cards'] = {};
+  const delays: Flights['delays'] = {};
+  if (update.view.phase !== 'phase1') return NO_FLIGHTS;
+  update.view.players.forEach((p, i) => {
+    if (!p.stackTop) return;
+    const key = cardToString(p.stackTop);
+    cards[key] = 'deck';
+    delays[key] = i * staggerMs;
+  });
+  return { cards, delays, hands: {}, hand: null };
 }

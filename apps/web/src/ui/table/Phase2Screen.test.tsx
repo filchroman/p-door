@@ -35,7 +35,7 @@ describe('Phase2Screen', () => {
     resetStore({ update: makeUpdate(beatNine(), 'A'), send });
     render(<Phase2Screen />);
     fireEvent.click(cardIn('Д♥'));
-    expect(send).toHaveBeenCalledWith({ type: 'play', card: c('QH') });
+    expect(send).toHaveBeenCalledWith({ type: 'play', card: c('QH') }, { dragged: false });
     fireEvent.click(screen.getByRole('button', { name: ru.table.take }));
     expect(send).toHaveBeenCalledWith({ type: 'take' });
   });
@@ -44,7 +44,7 @@ describe('Phase2Screen', () => {
     resetStore({ update: makeUpdate(beatNine(), 'A'), send });
     render(<Phase2Screen />);
     fireEvent.click(cardIn('7♣'));
-    expect(send).toHaveBeenCalledWith({ type: 'play', card: c('7C') });
+    expect(send).toHaveBeenCalledWith({ type: 'play', card: c('7C') }, { dragged: false });
   });
 
   it('"take the bottom" is disabled on an empty table', () => {

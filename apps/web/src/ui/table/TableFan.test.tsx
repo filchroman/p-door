@@ -27,7 +27,7 @@ describe('TableFan: how a card leaves the table', () => {
 
   it('a vidbiy sweeps the table away in its own layer: the zone is empty at once, then nothing is left', async () => {
     const { container, rerender } = render(<TableFan table={table(['9H', 'JH'])} />);
-    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300, landing: null } }));
+    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300, landing: null, waiting: false } }));
     rerender(<TableFan table={[]} />);
     await settle();
     // Зона стола пуста уже сейчас — улетающие карты живут отдельным слоем поверх неё.
@@ -44,7 +44,7 @@ describe('TableFan: how a card leaves the table', () => {
 
   it('a slice that arrives mid-sweep leaves no ghosts: the zone shows the new table, the layer only the old one', async () => {
     const { container, rerender } = render(<TableFan table={table(['9H', 'JH'])} />);
-    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300, landing: null } }));
+    act(() => useAppStore.setState({ sweep: { seq: 1, cards: [c('9H'), c('JH')], ms: 300, landing: null, waiting: false } }));
     rerender(<TableFan table={[]} />);
     await settle();
     // Следующий срез: кто-то уже положил карту на чистый стол, отбой ещё в полёте.
@@ -56,5 +56,17 @@ describe('TableFan: how a card leaves the table', () => {
     await settle();
     expect(container.querySelectorAll('.card')).toHaveLength(1);
     expect(screen.getByRole('img', { name: 'К♥' })).toBeInTheDocument();
+  });
+
+  it('while the closing card lands, the layer stands still; the sweep starts only after the store lifts the wait', async () => {
+    const { container, rerender } = render(<TableFan table={table(['9H'])} />);
+    act(() => useAppStore.setState({ sweep: { seq: 2, cards: [c('9H'), c('JH')], ms: 300, landing: null, waiting: true } }));
+    rerender(<TableFan table={[]} />);
+    await settle();
+    expect(container.querySelector('.table-sweep')).toHaveClass('is-landing');
+    act(() => useAppStore.setState({ sweep: { seq: 2, cards: [c('9H'), c('JH')], ms: 300, landing: null, waiting: false } }));
+    await settle();
+    expect(container.querySelector('.table-sweep')).not.toHaveClass('is-landing');
+    expect(container.querySelectorAll('.table-sweep .card')).toHaveLength(2);
   });
 });

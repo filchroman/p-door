@@ -4,8 +4,8 @@ import { preloadDeck } from '../cards/preload';
 import { createLocalMatch, type MatchSetup } from '../client/createLocalMatch';
 import type { BotSpeed, LogEntry } from '../client/debug';
 import type { AppClient, ClientUpdate, Intent } from '../client/types';
-import { NO_FLIGHTS, flightsFor, type Flights } from '../ui/anim/flights';
-import { DWELL_MS, flyMs, sweepMs } from '../ui/anim/motion';
+import { NO_FLIGHTS, dealFlights, flightsFor, type Flights } from '../ui/anim/flights';
+import { DWELL_MS, STAGGER_MS, flyMs, sweepMs } from '../ui/anim/motion';
 import type { Origin } from '../ui/anim/origins';
 import { prefersReducedMotion } from '../ui/anim/reducedMotion';
 import { VIBRATE_ERROR, vibrate } from '../ui/haptics';
@@ -18,6 +18,7 @@ import {
   keepSelection,
   nextMarks,
   sweptCards,
+  trumpRevealUpdate,
   type ActingFx,
   type RecentMarks,
   type Selection,
@@ -25,7 +26,7 @@ import {
   type ToastTone,
 } from './derive';
 import { exposeView } from './expose';
-import { CAPTION_FADE_MS, UpdatePump, captionHoldMs } from './updatePump';
+import { CAPTION_FADE_MS, TRUMP_REVEAL_MS, UpdatePump, captionHoldMs } from './updatePump';
 
 export type Screen = 'home' | 'loading' | 'game';
 
@@ -42,7 +43,14 @@ export interface TableSweep {
   seq: number;
   cards: Card[];
   ms: number;
-  landing: { key: string; from: Origin; ms: number } | null;
+  landing: { key: string; from: Origin | string; ms: number } | null;
+  /** Стол ещё стоит (закрывающая карта долетает или лежит паузу) — сметание не началось. */
+  waiting: boolean;
+}
+
+/** Как игрок сделал ход: перетащил карту сам — второй раз к цели её не везём. */
+export interface SendOptions {
+  dragged?: boolean;
 }
 
 export interface DebugSettings {
@@ -78,7 +86,7 @@ export interface AppState {
   makeClient: (setup: MatchSetup) => AppClient;
   preload: (deckSize: DeckSize) => Promise<void>;
   startMatch(setup: MatchSetup): Promise<void>;
-  send(intent: Intent): void;
+  send(intent: Intent, options?: SendOptions): void;
   select(selection: Selection): void;
   pushToast(text: string, tone?: ToastTone): void;
   dismissToast(id: number): void;
@@ -101,6 +109,27 @@ let sweepTimer: ReturnType<typeof setTimeout> | null = null;
 let sweepSeq = 0;
 let actTimer: ReturnType<typeof setTimeout> | null = null;
 let actSeq = 0;
+/** Карта, которую я только что перетащил сам: её перелёт к цели не показываем. */
+let draggedKey: string | null = null;
+let revealTimer: ReturnType<typeof setTimeout> | null = null;
+/** Сколько последний показанный срез просил держать экран (отбой с паузой и т. п.). */
+let lastHold = 0;
+
+function stopReveal(): void {
+  if (revealTimer !== null) clearTimeout(revealTimer);
+  revealTimer = null;
+}
+
+/** Какую карту переносит намерение: вытянутую, свою верхнюю или карту из руки. */
+function draggedCardKey(intent: Intent, view: NonNullable<AppState['update']>['view']): string | null {
+  if (intent.type === 'placeDrawn') return view.drawn ? cardKeyOf(view.drawn) : null;
+  if (intent.type === 'moveOwnTop') {
+    const top = view.players.find((p) => p.id === view.me)?.stackTop;
+    return top ? cardKeyOf(top) : null;
+  }
+  if (intent.type === 'play') return cardKeyOf(intent.card);
+  return null;
+}
 
 /** Карта, закрывшая отбой в этом срезе: сыграна и тем же действием ушла со стола. */
 function landingKey(update: ClientUpdate): string | null {
@@ -124,7 +153,25 @@ function stopSweep(): void {
 }
 
 export const useAppStore = create<AppState>()((set, get) => {
-  const show = (update: ClientUpdate, speed: number) => {
+  const show = (update: ClientUpdate, speed: number): number => {
+    const { marks, selection, debug, client, log, sweep, motionEnabled, update: prev } = get();
+    const reduced = prefersReducedMotion();
+    // Козырь: сначала показ вытянутой последней карты, настоящий срез — после паузы.
+    const reveal = motionEnabled && !reduced ? trumpRevealUpdate(prev, update) : null;
+    if (reveal) {
+      const revealMs = Math.round(TRUMP_REVEAL_MS / Math.max(1, speed));
+      showSlice(reveal, speed);
+      stopReveal();
+      revealTimer = setTimeout(() => {
+        revealTimer = null;
+        showSlice(update, speed);
+      }, revealMs);
+      return revealMs + Math.max(0, lastHold);
+    }
+    return showSlice(update, speed);
+  };
+
+  const showSlice = (update: ClientUpdate, speed: number): number => {
     const { marks, selection, debug, client, log, sweep, motionEnabled, update: prev } = get();
     const reduced = prefersReducedMotion();
     // Новая партия — новый стол: ни улетающий отбой прошлой, ни её праздничный такт сюда не тянутся.
@@ -138,12 +185,19 @@ export const useAppStore = create<AppState>()((set, get) => {
     // Зоны исчезают вместе со срезом (прикуп ушёл в руку, карта — со стола): места карт снимаются
     // с ещё не перерисованного экрана, и это начала перелётов этого хода (спека §2c.1).
     const seq = ++actSeq;
-    const flights = motionEnabled && !fresh && !reduced ? flightsFor(prev, update, seq) : NO_FLIGHTS;
+    const flights = !motionEnabled || reduced ? NO_FLIGHTS : fresh ? dealFlights(update, STAGGER_MS) : flightsFor(prev, update, seq);
+    // Я перетащил карту сам — она уже у цели, везти её туда второй раз незачем.
+    if (draggedKey && update.events.some((e) => 'playerId' in e && e.playerId === update.view.me) ) {
+      delete flights.cards[draggedKey];
+      draggedKey = null;
+    }
     // Закрывающая карта сначала долетает до стола (её место в руке снято до перерисовки),
     // лежит там паузу, и только потом стол сметается — перелёт и сметание не идут вместе (§2c.3).
     const closingKey = swept.length > 0 ? landingKey(update) : null;
     const landing = closingKey && flights.cards[closingKey] ? { key: closingKey, from: flights.cards[closingKey], ms: flyMs(speed) } : null;
     if (landing) delete flights.cards[landing.key];
+    // Перетащил закрывающую карту сам — перелёта нет, но пауза перед сметанием остаётся.
+    const preMs = landing ? landing.ms + dwell : closingKey ? dwell : 0;
     const captionMs = captionHoldMs(speed);
     const acting = actingFrom(update, seq, captionMs);
     stopCelebration();
@@ -152,7 +206,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     set({
       update,
       animSpeed: speed,
-      sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms, landing } : fresh ? null : sweep,
+      sweep: swept.length > 0 ? { seq: ++sweepSeq, cards: swept, ms, landing, waiting: preMs > 0 } : fresh ? null : sweep,
       celebrating: hold > 0,
       acting,
       flights,
@@ -179,13 +233,13 @@ export const useAppStore = create<AppState>()((set, get) => {
           set({ sweep: null });
         }, ms);
       };
-      if (landing) {
+      if (preMs > 0) {
         sweepTimer = setTimeout(() => {
           const current = get().sweep;
-          if (current?.seq === mySeq) set({ sweep: { ...current, landing: null } });
+          if (current?.seq === mySeq) set({ sweep: { ...current, landing: null, waiting: false } });
           startSweep();
-        }, landing.ms + dwell);
-        sweepHold = landing.ms + dwell + ms;
+        }, preMs);
+        sweepHold = preMs + ms;
       } else {
         startSweep();
         sweepHold = ms;
@@ -200,7 +254,8 @@ export const useAppStore = create<AppState>()((set, get) => {
       }, captionMs + CAPTION_FADE_MS);
     }
     for (const toast of eventToasts(update)) get().pushToast(toast.text, toast.tone);
-    return Math.max(sweepHold, hold);
+    lastHold = Math.max(sweepHold, hold);
+    return lastHold;
   };
 
   const pump = new UpdatePump<ClientUpdate>(show, () => get().motionEnabled);
@@ -220,6 +275,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       stopCelebration();
       stopSweep();
       stopActing();
+      stopReveal();
       client.dispose();
     };
   };
@@ -254,6 +310,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       client.debug?.setBotSpeed(debug.botSpeed);
       client.debug?.setAutopilot(debug.autopilot);
       const update = client.snapshot();
+      draggedKey = null;
       set({
         client,
         screen: 'game',
@@ -262,7 +319,7 @@ export const useAppStore = create<AppState>()((set, get) => {
         sweep: null,
         celebrating: false,
         acting: null,
-        flights: NO_FLIGHTS,
+        flights: update && get().motionEnabled && !prefersReducedMotion() ? dealFlights(update, STAGGER_MS) : NO_FLIGHTS,
         marks: emptyMarks(update?.session.gameNumber ?? 0),
         selection: null,
         allHands: debug.showAllHands ? (client.debug?.allHands() ?? null) : null,
@@ -271,7 +328,9 @@ export const useAppStore = create<AppState>()((set, get) => {
       exposeView(update);
     },
 
-    send(intent) {
+    send(intent, options) {
+      const view = get().update?.view ?? null;
+      draggedKey = options?.dragged && view ? draggedCardKey(intent, view) : null;
       set({ selection: null });
       get().client?.send(intent);
     },
@@ -302,6 +361,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       detach = null;
       stopSweep();
       stopActing();
+      stopReveal();
       exposeView(null);
       set({ screen: 'home', client: null, update: null, selection: null, allHands: null, log: [], sweep: null, celebrating: false, acting: null, flights: NO_FLIGHTS });
     },

@@ -161,7 +161,9 @@ test('every move flies: the top layer really carries the card through intermedia
     return [...byId.values()]
       .filter((g) => g.length > 1 && g[g.length - 1].t < settled)
       .map((g) => {
-        const first = g[0];
+        // Каскад (раздача, прикуп) держит карту на старте до своей очереди: считаем полёт с первого движения.
+        const firstMove = g.findIndex((f) => f.x !== g[0].x || f.y !== g[0].y);
+        const first = g[Math.max(0, firstMove - 1)];
         const last = g[g.length - 1];
         const between = g.filter((f) => (f.x !== first.x || f.y !== first.y) && (f.x !== last.x || f.y !== last.y));
         return {

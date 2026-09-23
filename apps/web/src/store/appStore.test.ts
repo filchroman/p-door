@@ -4,9 +4,9 @@ import { ru } from '../i18n/ru';
 import { testHostOptions } from '../test/hostOptions';
 import { c, phase1State, phase2State } from '../test/states';
 import { fakeClient, makeUpdate, resetStore } from '../test/updates';
-import { DWELL_MS, EXIT_MS } from '../ui/anim/motion';
+import { DWELL_MS, EXIT_MS, STAGGER_MS } from '../ui/anim/motion';
 import { useAppStore } from './appStore';
-import { CAPTION_FADE_MS, CAPTION_MS, CATCHUP_PAUSE_MS, STEP_MS } from './updatePump';
+import { CAPTION_FADE_MS, CAPTION_MS, CATCHUP_PAUSE_MS, STEP_MS, TRUMP_REVEAL_MS } from './updatePump';
 
 const setup: MatchSetup = { nick: 'Вася', playerCount: 3, settings: { deckSize: 36, turnSeconds: 0, stallRule: 'forcedVidbiy' } };
 const start = () =>
@@ -330,5 +330,76 @@ describe('«побил → пауза → отбой» (§2c.3)', () => {
     expect(useAppStore.getState().update!.events[0]).toMatchObject({ type: 'played', playerId: 'p0' });
     vi.advanceTimersByTime(CATCHUP_PAUSE_MS);
     expect(useAppStore.getState().update!.events[0]).toMatchObject({ type: 'played', playerId: 'p1' });
+  });
+});
+
+describe('раздача и своя рука (пожелания заказчика)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('в начале партии открытые карты раздаются из колоды по очереди: перелёт с каскадом', async () => {
+    resetStore({ makeClient, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    const { flights } = useAppStore.getState();
+    // Верхняя карта каждой стопки летит из колоды; каждая следующая — чуть позже предыдущей.
+    expect(flights.cards).toEqual({ '7H': 'deck', QC: 'deck', KD: 'deck' });
+    expect(flights.delays).toEqual({ '7H': 0, QC: STAGGER_MS, KD: 2 * STAGGER_MS });
+  });
+
+  it('карту, которую я сам перетащил, второй раз к цели не везёт', async () => {
+    const before = phase1State({ players: [{ id: 'p0', stack: '7H' }, { id: 'p1', stack: 'QC' }], deck: '9S', drawn: '8S' });
+    const after = phase1State({ players: [{ id: 'p0', stack: '7H 8S' }, { id: 'p1', stack: 'QC' }], deck: '9S', turn: 'p1' });
+    const { client, emit } = fakeClient(makeUpdate(before, 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    // На экране вытянутая карта лежит в своём слоте — оттуда она и полетела бы.
+    const slot = document.createElement('div');
+    slot.dataset.zone = 'drawn';
+    const card = document.createElement('div');
+    card.dataset.card = '8S';
+    card.getBoundingClientRect = () => ({ left: 200, top: 300, right: 284, bottom: 426, width: 84, height: 126, x: 200, y: 300, toJSON: () => ({}) }) as DOMRect;
+    slot.append(card);
+    document.body.append(slot);
+    useAppStore.getState().send({ type: 'placeDrawn', to: 'p0' }, { dragged: true });
+    emit(makeUpdate(after, 'p0', { events: [{ type: 'kept', playerId: 'p0', card: c('8S') }] }));
+    vi.advanceTimersByTime(STEP_MS);
+    expect(useAppStore.getState().flights.cards['8S']).toBeUndefined();
+    // Но тот же ход, сделанный тапом «карта → цель», перелёт получает.
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    useAppStore.getState().send({ type: 'placeDrawn', to: 'p0' });
+    emit(makeUpdate(after, 'p0', { events: [{ type: 'kept', playerId: 'p0', card: c('8S') }] }));
+    vi.advanceTimersByTime(STEP_MS);
+    expect(useAppStore.getState().flights.cards['8S']).toMatchObject({ x: 200, y: 300 });
+  });
+});
+
+describe('последняя карта колоды — козырь (пожелание заказчика)', () => {
+  it('сначала показывает вытянутый козырь в слоте на столе фазы 1, и только потом открывает фазу 2', async () => {
+    const before = phase1State({ players: [{ id: 'p0', stack: '7H' }, { id: 'p1', stack: 'QC' }], deck: '9S', turn: 'p1' });
+    // Движок: последняя карта ушла в стопку p1, козырь — пики нет, значит 9S → предыдущая… здесь просто 'S' не бывает, берём 9H.
+    const after = { ...phase1State({ players: [{ id: 'p0', stack: '7H' }, { id: 'p1', stack: 'QC 9S' }], deck: '', turn: 'p1' }), phase: 'penalty' as const, trump: 'H' as const, trumpCard: c('7H') };
+    for (const p of after.players) {
+      p.hand = p.stack;
+      p.stack = [];
+    }
+    const { client, emit } = fakeClient(makeUpdate(before, 'p0'));
+    resetStore({ makeClient: () => client, motionEnabled: true });
+    await useAppStore.getState().startMatch(setup);
+    emit(makeUpdate(after, 'p0', { events: [{ type: 'drew', playerId: 'p1', card: c('9S') }, { type: 'trump', suit: 'H', card: c('7H') }, { type: 'phase', phase: 'penalty' }] }));
+    // Показ: ещё фаза 1, колода пуста, вытянутая карта лежит в слоте, подпись — «вытянул козырь».
+    const shown = useAppStore.getState();
+    expect(shown.update!.view.phase).toBe('phase1');
+    expect(shown.update!.view.deckCount).toBe(0);
+    expect(shown.update!.view.drawn).toEqual(c('9S'));
+    expect(shown.acting).toMatchObject({ id: 'p1', text: ru.act.drewTrump(ru.suitNames.H) });
+    expect(window.__vakhta!.zones.drawn).toBe(1);
+    // Пауза кончилась — настоящий срез.
+    vi.advanceTimersByTime(TRUMP_REVEAL_MS - 1);
+    expect(useAppStore.getState().update!.view.phase).toBe('phase1');
+    vi.advanceTimersByTime(1);
+    expect(useAppStore.getState().update!.view.phase).toBe('penalty');
+    expect(useAppStore.getState().update!.view.trumpCard).toEqual(c('7H'));
   });
 });

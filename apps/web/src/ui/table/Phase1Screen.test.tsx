@@ -117,7 +117,8 @@ describe('Phase1Screen', () => {
     expect(card.style.transform).toBe('translate(-50px, -130px)');
     expect(screen.getByTestId('pile-B')).toHaveClass('is-snap');
     fireEvent.pointerUp(card, { clientX: 100, clientY: 120, pointerId: 1 });
-    expect(send).toHaveBeenCalledWith({ type: 'placeDrawn', to: 'B' });
+    // Перетащил сам — стор знает об этом и не повезёт карту к цели второй раз.
+    expect(send).toHaveBeenCalledWith({ type: 'placeDrawn', to: 'B' }, { dragged: true });
     expect(card.style.transform).toBe('');
     expect(screen.getByTestId('pile-B')).not.toHaveClass('is-snap');
   });

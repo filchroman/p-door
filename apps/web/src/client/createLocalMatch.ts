@@ -1,4 +1,4 @@
-import { LocalHost, type HostOptions } from '../host/LocalHost';
+import { LocalHost, type HostOptions } from '@vakhta/host';
 import { LocalGameClient } from './LocalGameClient';
 import { makeSeats } from './seats';
 import type { MatchSettings } from './types';

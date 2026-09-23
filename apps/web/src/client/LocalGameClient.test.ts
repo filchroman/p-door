@@ -1,6 +1,6 @@
 import { parseCard, type ErrorCode } from '@vakhta/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LocalHost } from '../host/LocalHost';
+import { LocalHost } from '@vakhta/host';
 import { ru } from '../i18n/ru';
 import { testHostOptions } from '../test/hostOptions';
 import { phase1State } from '../test/states';

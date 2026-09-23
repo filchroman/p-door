@@ -1,11 +1,11 @@
 import { VAKHTA_GRACE_MS, makeDeck, mulberry32, shuffle, type DeckSize, type GameState } from '@vakhta/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BOT_REACTION_MAX_MS } from '../bots/botAction';
-import { runUntil, testHostOptions } from '../test/hostOptions';
-import { c, penaltyState, phase1State } from '../test/states';
-import type { MatchSettings, SeatInfo } from '../client/types';
-import { LocalHost, type HostOptions } from './LocalHost';
-import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS } from './types';
+import { BOT_REACTION_MAX_MS } from '../src/bots/botAction';
+import { runUntil, testHostOptions } from '../testing/hostOptions';
+import { c, penaltyState, phase1State } from '../testing/states';
+import type { MatchSettings, SeatInfo } from '@vakhta/protocol';
+import { LocalHost, type HostOptions } from '../src/LocalHost';
+import { BOT_DELAY_MAX_MS, PENALTY_MS, TICK_SLACK_MS } from '../src/types';
 
 /** Заглушка движка: по флагу отклоняет любое действие — так воспроизводится отказ и боту, и запасному автоходу. */
 const engine = vi.hoisted(() => ({ rejectAll: false }));

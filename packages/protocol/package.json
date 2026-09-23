@@ -1,0 +1,8 @@
+{
+  "name": "@vakhta/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@vakhta/engine": "*", "zod": "^4.6.5" }
+}

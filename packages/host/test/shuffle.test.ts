@@ -1,6 +1,6 @@
 import { cardToString, makeDeck } from '@vakhta/engine';
 import { describe, expect, it } from 'vitest';
-import { cryptoInt, cryptoShuffledDeck } from './shuffle';
+import { cryptoInt, cryptoShuffledDeck } from '../src/shuffle';
 
 describe('crypto shuffle', () => {
   it('returns a permutation of the full deck', () => {

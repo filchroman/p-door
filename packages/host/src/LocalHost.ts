@@ -23,9 +23,9 @@ import {
   type PlayerView,
   type SessionState,
 } from '@vakhta/engine';
-import { botAction, botVakhtaDelay } from '../bots/botAction';
-import type { BotSpeed, LogEntry } from '../client/debug';
-import type { Deadlines, MatchSettings, SeatInfo, SessionStatus, SessionSummary } from '../client/types';
+import { botAction, botVakhtaDelay } from './bots/botAction';
+import type { BotSpeed, LogEntry } from './debug';
+import type { Deadlines, MatchSettings, SeatInfo, SessionStatus, SessionSummary } from '@vakhta/protocol';
 import { cryptoShuffledDeck } from './shuffle';
 import { BOT_DELAY_MAX_MS, BOT_DELAY_MIN_MS, PENALTY_MS, TICK_SLACK_MS, type HostClock, type TimerHandle } from './types';
 

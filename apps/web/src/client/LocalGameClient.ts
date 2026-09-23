@@ -1,5 +1,5 @@
 import type { ErrorCode, PlayerId } from '@vakhta/engine';
-import type { LocalHost } from '../host/LocalHost';
+import type { LocalHost } from '@vakhta/host';
 import type { DebugControls } from './debug';
 import type { AppClient, ClientUpdate, Intent } from './types';
 

@@ -1,7 +1,7 @@
 import { apply, mulberry32, type GameState } from '@vakhta/engine';
 import { describe, expect, it } from 'vitest';
-import { c, penaltyState, phase1State, phase2State } from '../test/states';
-import { BOT_REACTION_MAX_MS, BOT_REACTION_MIN_MS, botAction, botVakhtaDelay, cheapest } from './botAction';
+import { c, penaltyState, phase1State, phase2State } from '../../testing/states';
+import { BOT_REACTION_MAX_MS, BOT_REACTION_MIN_MS, botAction, botVakhtaDelay, cheapest } from '../../src/bots/botAction';
 
 const always = (value: number) => () => value;
 const seq = (...values: number[]) => {

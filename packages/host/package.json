@@ -1,0 +1,8 @@
+{
+  "name": "@vakhta/host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./testing": "./testing/index.ts" },
+  "dependencies": { "@vakhta/engine": "*", "@vakhta/protocol": "*" }
+}
